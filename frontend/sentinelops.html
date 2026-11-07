@@ -249,6 +249,16 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
   <div class="dact"><button class="btn" id="compClose">Close</button></div>
 </dialog>
 
+<!-- POST-MORTEM REPORT DIALOG -->
+<dialog id="pmDlg" style="width:min(740px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">📄 Incident Post-Mortem Report</h3>
+    <button class="btn sm" id="pmCopy">Copy Markdown</button>
+  </div>
+  <pre id="pmContent" style="max-height:420px;overflow:auto;background:var(--sf2);padding:14px;border-radius:8px;font-family:var(--fm);font-size:12px;white-space:pre-wrap;border:1px solid var(--bd);margin:8px 0"></pre>
+  <div class="dact"><button class="btn" id="pmClose">Close</button></div>
+</dialog>
+
 <!-- HINDSIGHT MEMORY EXPLORER MODAL -->
 <dialog id="memExpDlg" style="width:min(680px,calc(100vw - 24px))">
   <h3>🧠 Hindsight Memory Explorer (Bank: acme-sre)</h3>
@@ -354,8 +364,9 @@ function elInc(i){
       <div class="brief-box">
         <div class="brief-header">
           <span><b>Echo-Core On-Call Briefing</b></span>
-          <div style="display:flex;gap:6px;align-items:center">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <button class="btn sm b-comp" style="font-size:11px;padding:3px 8px">⚖️ Compare vs Generic</button>
+            <button class="btn sm b-pm" style="font-size:11px;padding:3px 8px">📄 Post-Mortem</button>
             <div class="brief-toggle" data-id="${i.id}">
               <button class="b-mem active" data-mode="mem">🧠 Memory ON</button>
               <button class="b-gen" data-mode="gen">⚡ Memory OFF</button>
@@ -399,6 +410,11 @@ function elInc(i){
   $(".b-comp",e).onclick=evt=>{
     evt.stopPropagation();
     showComparisonModal(i);
+  };
+
+  $(".b-pm",e).onclick=evt=>{
+    evt.stopPropagation();
+    showPostMortemModal(i);
   };
 
   const a=$(".acts",e);
@@ -513,7 +529,7 @@ function reveal(i){
 }
 
 /* commands and resolution */
-let cur=null;const dlg=$("#dlg"),resDlg=$("#resDlg"),compDlg=$("#compDlg");
+let cur=null;const dlg=$("#dlg"),resDlg=$("#resDlg"),compDlg=$("#compDlg"),pmDlg=$("#pmDlg");
 
 function ask(i,c){
   cur={i,c};
@@ -531,7 +547,6 @@ function ask(i,c){
   $("#dIn").value="";
   $("#dGo").disabled=!!c.risk;
 
-  // Check if command is dangerous anti-pattern
   const sw=$("#dSafetyWarning");
   if(i.svc==="payments" && c.k==="restart"){
     sw.style.display="block";
@@ -597,7 +612,6 @@ $("#resGo").onclick=async()=>{
   }catch(err){console.error("Resolve error:",err)}
 };
 
-/* comparison modal */
 function showComparisonModal(i){
   const mem = i.briefing || {};
   const gen = i.generic_briefing || {};
@@ -617,6 +631,23 @@ function showComparisonModal(i){
   compDlg.showModal();
 }
 $("#compClose").onclick=()=>compDlg.close();
+
+async function showPostMortemModal(i){
+  pmDlg.showModal();
+  $("#pmContent").textContent="Generating comprehensive post-mortem from Hindsight memory...";
+  try{
+    const res=await fetch(`/api/incidents/${i.id}/postmortem`);
+    const md=await res.text();
+    $("#pmContent").textContent=md;
+  }catch(e){
+    $("#pmContent").textContent=`Failed to load post-mortem: ${e}`;
+  }
+}
+$("#pmClose").onclick=()=>pmDlg.close();
+$("#pmCopy").onclick=()=>{
+  navigator.clipboard.writeText($("#pmContent").textContent);
+  toast("Post-Mortem Copied","Markdown report copied to clipboard",0);
+};
 
 /* graph */
 const svg=$("#kg"),NS="http://www.w3.org/2000/svg",mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.append(e);return e};
@@ -693,6 +724,7 @@ $("#bDemo20").onclick=()=>triggerScenario(20);
 
 $("#bCascade").onclick=async()=>{
   try{
+    toast("Cascade Triggered","Simulating multi-service cascade...",1);
     const res=await fetch("/api/incidents/cascade",{method:"POST"});
     const data=await res.json();
     data.cascade_incidents.forEach(inc=>{
@@ -700,7 +732,7 @@ $("#bCascade").onclick=async()=>{
       if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
     });
     sync();health();renderK();
-    toast("Multi-Service Cascade Triggered",`Root cause identified: ${data.root_cause_service}`,1,()=>reveal(data.cascade_incidents[0]));
+    toast("Multi-Service Cascade Active",`Echo-Core identified root cause: ${data.root_cause_service}`,1,()=>reveal(data.cascade_incidents[0]));
   }catch(e){console.error(e)}
 };
 

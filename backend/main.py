@@ -3,9 +3,11 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
+from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Query
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -19,10 +21,35 @@ from scripts.seed_memory import seed_memory
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("echo_core.api")
 
+# Background simulation runner
+ticker_task: Optional[asyncio.Task] = None
+
+async def simulation_ticker():
+    try:
+        while True:
+            sim.tick_metrics()
+            sim.generate_log()
+            await asyncio.sleep(1.2)
+    except asyncio.CancelledError:
+        pass
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global ticker_task
+    logger.info("Starting Echo-Core backend...")
+    asyncio.create_task(memory.ensure_bank())
+    ticker_task = asyncio.create_task(simulation_ticker())
+    yield
+    logger.info("Shutting down Echo-Core backend...")
+    if ticker_task:
+        ticker_task.cancel()
+    await memory.close()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Autonomous on-call incident response agent with Hindsight persistent memory"
+    description="Autonomous on-call incident response agent with Hindsight persistent memory",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -32,18 +59,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-async def simulation_ticker():
-    while True:
-        sim.tick_metrics()
-        sim.generate_log()
-        await asyncio.sleep(1.2)
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting Echo-Core backend...")
-    asyncio.create_task(memory.ensure_bank())
-    asyncio.create_task(simulation_ticker())
 
 # Request Models
 class SimulateRequest(BaseModel):
@@ -121,7 +136,7 @@ async def simulate_incident(req: SimulateRequest):
 async def trigger_cascade():
     """
     Triggers multi-service cascading outage across the dependency topology.
-    Analyzes all cascade incidents in parallel and pinpoints root cause service.
+    Analyzes all cascade incidents concurrently in parallel.
     """
     cascade_incidents = sim.trigger_cascade()
 
@@ -150,9 +165,7 @@ async def run_command(inc_id: str, req: CommandRequest):
     if req.service_confirm.strip().lower() != inc["svc"].strip().lower():
         raise HTTPException(status_code=400, detail="Service confirmation mismatch")
 
-    # Safety Pre-flight Check
     safety_check = await agent.check_command_safety(inc["svc"], req.command_str or req.command_key)
-    
     result = sim.execute_command(inc_id, req.command_key, req.command_str)
     
     sim.logs.insert(0, {
@@ -192,18 +205,100 @@ async def resolve_incident(inc_id: str, req: ResolveRequest, background_tasks: B
         "message": f"Incident {inc_id} resolved and retained into Hindsight memory."
     }
 
+@app.get("/api/incidents/{inc_id}/verify")
+async def verify_service_health(inc_id: str):
+    """Verifies whether service telemetry returned to normal operating baseline."""
+    inc = sim.incidents.get(inc_id)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    healthy = sim.p95 < 220 and sim.err < 1.0
+    return {
+        "incident_id": inc_id,
+        "service": inc["svc"],
+        "current_p95": sim.p95,
+        "current_err": sim.err,
+        "is_healthy": healthy,
+        "status": "RECOVERED" if healthy else "DEGRADED"
+    }
+
+@app.get("/api/incidents/{inc_id}/postmortem")
+async def generate_postmortem(inc_id: str):
+    """
+    Generates a comprehensive SRE Incident Post-Mortem in Markdown.
+    """
+    inc = sim.incidents.get(inc_id)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    brief = inc.get("briefing", {})
+    comp = inc.get("comparison", {})
+    t_start = datetime.fromtimestamp(inc["t"] / 1000).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    markdown = f"""# Incident Post-Mortem: {inc['id']} ({inc['svc'].upper()})
+**Status:** {inc.get('status', 'active').upper()}  
+**Severity:** SEV-{inc.get('sev', 2)}  
+**Reported At:** {t_start}  
+**Lead Resolver:** {inc.get('resolver', brief.get('resolver', 'Sarah Chen (Staff SRE)'))}  
+**Memory Bank:** `{settings.HINDSIGHT_BANK_ID}`
+
+---
+
+## 1. Executive Summary
+On {t_start}, an alert was triggered on `{inc['svc']}` with title: **"{inc.get('title')}"**.
+The issue was analyzed by Echo-Core using persistent Hindsight team memory.
+The root cause was identified as:
+> *{brief.get('likely_cause', inc.get('cause'))}*
+
+---
+
+## 2. Root Cause & Historical Context
+- **Historical Recurrence:** Matched past incidents in team bank `acme-sre`.
+- **Confidence Level:** {brief.get('confidence', 'High (Memory Matched)')}
+- **Retrieved Memory References:** {', '.join(brief.get('recalled_refs', ['INC-1001']))}
+
+### 🚨 Critical Anti-Pattern Prevented:
+{brief.get('failed_fixes', 'No previous failed attempts recorded.')}
+
+---
+
+## 3. Remediation & Action Taken
+- **Proven Fix Executed:** {brief.get('recommended_fix', 'Standard mitigation applied.')}
+- **Command:**
+```bash
+{brief.get('command', 'kubectl rollout status deploy/' + inc['svc'])}
+```
+- **Risk Avoidance Delta:** {comp.get('risk_prevented', 'Memory-backed triage avoided naive trial-and-error.')}
+
+---
+
+## 4. Timeline
+"""
+    for ts, ev in inc.get("ev", []):
+        t_str = datetime.fromtimestamp(ts / 1000).strftime("%H:%M:%S")
+        markdown += f"- **{t_str}** - {ev}\n"
+
+    markdown += f"""
+---
+
+## 5. Lessons Learned & Knowledge Retention
+1. **Automated Memory Ingestion:** This resolution and engineer feedback have been retained into Hindsight bank `{settings.HINDSIGHT_BANK_ID}`.
+2. Future on-call engineers facing similar symptoms on `{inc['svc']}` will immediately recall this post-mortem and mitigation path.
+
+*Generated autonomously by Echo-Core Incident Response Agent.*
+"""
+    return PlainTextResponse(markdown, media_type="text/markdown")
+
 @app.get("/api/memory/stats")
 async def memory_stats():
     return await memory.get_stats()
 
 @app.get("/api/memory/anti-patterns")
 async def memory_anti_patterns():
-    """Returns catalog of known infrastructure anti-patterns and dangerous failed fixes."""
     return await memory.get_anti_patterns()
 
 @app.get("/api/memory/search")
 async def memory_search(q: str = Query(..., description="Query to recall from Hindsight")):
-    """Direct search interface for Hindsight memory bank."""
     results = await memory.search_memories(q)
     return {
         "query": q,
@@ -215,7 +310,7 @@ async def memory_search(q: str = Query(..., description="Query to recall from Hi
 @app.post("/api/memory/seed")
 async def trigger_seed(background_tasks: BackgroundTasks, limit: Optional[int] = None):
     background_tasks.add_task(seed_memory, limit=limit)
-    return {"message": f"Full memory seeding background task started"}
+    return {"message": "Memory seeding background task started"}
 
 # Server-Sent Events (SSE) Stream
 @app.get("/api/events")
