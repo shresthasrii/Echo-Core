@@ -279,12 +279,18 @@ class TelemetrySimulator:
         if cmd_key == "resolve":
             inc["status"] = "resolved"
             inc["ev"].append([t_now, "Incident marked as resolved by engineer."])
+            self.p95 = round(random.uniform(142.0, 185.0), 1)
+            self.err = round(random.uniform(0.12, 0.40), 2)
             return {
                 "success": True,
                 "incident": inc,
                 "resolved": True,
                 "message": f"Incident {inc_id} resolved."
             }
+
+        # Successful mitigation commands relieve cluster strain
+        self.p95 = max(145.0, round(self.p95 * 0.65, 1))
+        self.err = max(0.15, round(self.err * 0.4, 2))
 
         if inc["sev"] < 4:
             inc["sev"] += 1
