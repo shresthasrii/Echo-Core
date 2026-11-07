@@ -19,5 +19,9 @@ dependencies = [
     "aiohttp>=3.9.0"
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
 [tool.vercel]
 entrypoint = "backend.main:app"
