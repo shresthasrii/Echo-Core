@@ -1,38 +1,41 @@
 # Echo-Core: Incident Response Agent with Persistent Memory
-> **HackwithBengaluru 2.0** — Autonomous on-call incident response agent powered by **Hindsight memory** and **Groq LLMs**.
+> **HackwithBengaluru 2.0** — Autonomous on-call incident response agent powered by **Hindsight persistent memory** and **Groq LLMs**.
 
 ---
 
 ## 1. Overview & Vision
 In modern distributed systems, on-call engineers suffer from **institutional amnesia**:
-- The same root causes recur across deployments (e.g. database pool exhaustion after Friday releases).
-- Different engineers repeatedly attempt the **same failed fixes**, causing secondary catastrophic outages (e.g. restarting pods during pool saturation triggers a connection stampede).
-- Historical knowledge is scattered across old Slack threads, resolved Jira tickets, or lost entirely when engineers change teams.
+- The same root causes recur across deployments (e.g. database connection pool exhaustion after Friday releases).
+- Different engineers repeatedly attempt the **same failed fixes**, triggering secondary catastrophic outages (e.g. restarting pods during pool saturation triggers an immediate connection stampede that crashes the database).
+- Historical knowledge is scattered across old Slack threads, resolved Jira tickets, or lost entirely when team members transition.
 
 **Echo-Core** solves this with **persistent biomimetic memory**. Using **Vectorize Hindsight**, Echo-Core remembers every past incident: symptoms, error signatures, root causes, working fixes, historical resolvers, and critically: **fixes that FAILED**. With every resolved incident, Echo-Core gets measurably smarter.
 
 ---
 
-## 2. Architecture
+## 2. Architecture Diagram
 
 ```mermaid
 flowchart TD
     subgraph UI["Echo-Core Command Center (HTML5 / SSE)"]
         UI_Dash["Live Service Dependency Graph (SVG)"]
-        UI_Toggle["Memory ON / OFF Toggle"]
+        UI_Toggle["Memory ON / OFF Toggle & ⚖️ Comparison Modal"]
         UI_Brief["Agent Briefing & 🚨 Failed Fix Warnings"]
         UI_MemView["Recalled Incidents & Hindsight Inspector"]
-        UI_Modal["Human Confirmation Dialog"]
+        UI_MemExp["🧠 Live Hindsight Memory Explorer"]
+        UI_AntiPat["🚨 Team Anti-Patterns Catalog"]
+        UI_Modal["Human Confirmation & Pre-flight Safety"]
     end
 
     subgraph Backend["FastAPI Backend (backend/main.py)"]
         REST["REST Endpoints (/api/incidents, /api/command, /api/resolve)"]
         SSE["Server-Sent Events Broadcaster (/api/events)"]
-        Sim["Simulator (RPS, p95, Error Rates, Logs)"]
+        Sim["Simulator (RPS, p95, Error Rates, Cascades, Logs)"]
     end
 
     subgraph Agent["Echo-Core Agent (backend/agent.py)"]
         AgentLoop["Autonomous On-Call Agent Loop"]
+        Safety["Pre-Flight Safety Check (Blocks Known Disasters)"]
         Tools["Agent Tools: recall, runbook, propose_fix, run_command, retain"]
     end
 
@@ -42,7 +45,7 @@ flowchart TD
     end
 
     subgraph Memory["Hindsight Memory Engine (backend/memory.py)"]
-        H_Bank[("Team Bank: acme-sre")]
+        H_Bank[("Team Bank: acme-sre (40 Incidents Retained)")]
         H_Recall["recall() - Hybrid BM25 + Semantic + Graph"]
         H_Reflect["reflect() - Cross-Memory Synthesis & Reasoning"]
         H_Retain["retain() - Extracted Facts & Engineer Feedback"]
@@ -50,6 +53,7 @@ flowchart TD
 
     UI_Dash <-->|SSE Stream & REST| Backend
     Backend <--> Agent
+    Agent <--> Safety
     Agent <--> LLM
     Agent <--> Memory
     Memory <--> H_Bank
@@ -75,28 +79,46 @@ Rather than dumping raw text into the LLM prompt, Hindsight’s `reflect()` runs
 4. *Who solved this in the past?*
 
 ### 3. `retain()` — Learning from Resolution Feedback
-When the on-call engineer mitigates an incident, Echo-Core prompts for resolution notes and whether the suggestion worked. The entire incident record, remediation commands, and engineer feedback are ingested via `retain()`. Hindsight’s extraction pipeline automatically parses the facts, linking them to the service and team graph.
+When the on-call engineer mitigates an incident, Echo-Core prompts for resolution notes, rating, and whether the suggestion worked. The entire incident record, remediation commands, and engineer feedback are ingested via `retain()`. Hindsight’s extraction pipeline automatically parses the facts, linking them to the service and team graph.
 
-### 4. Memory ON / OFF Toggle: The Stark Contrast
+### 4. Memory ON / OFF Comparison: The Stark Contrast
 Echo-Core computes both a **Memory-Informed Briefing** and a **Generic (Memory OFF) Briefing**:
 - **With Memory OFF**: A naive LLM generates textbook advice: *"Restart the pods with `kubectl rollout restart deploy/payments`"*.
-- **With Memory ON**: Echo-Core explicitly warns: *"🚨 DO NOT restart payments pods! In INC-1001, restarting caused a connection stampede that brought down Postgres for 18 minutes. Apply PgBouncer pooler patch instead."*
+- **With Memory ON**: Echo-Core explicitly warns: *"🚨 DO NOT restart payments pods! In INC-1001, restarting caused an immediate connection stampede that brought down Postgres for 18 minutes. Apply PgBouncer pooler patch instead."*
 
 ---
 
-## 4. Demo Scenarios (Step-by-Step)
+## 4. Key Features & Improvements (Part 1 & Part 2)
 
-The dashboard includes one-click buttons in the top toolbar to demonstrate memory progression:
+### Part 1: Core Agent & Persistent Memory
+- **Full Memory Ingestion**: 40 realistic historical incidents ingested into Hindsight bank `acme-sre` across 9 microservices.
+- **Side-by-Side Comparison Modal (`⚖️ Compare vs Generic`)**: Directly displays the risk delta between generic LLM advice and memory-backed advice.
+- **Pre-Flight Safety Checks**: The agent verifies proposed commands against known anti-patterns before presenting them to the engineer.
+- **Human-in-the-Loop Safeguards**: Mutating commands require typing the target service name to confirm.
+- **Catastrophic Failure Simulation**: If the user overrides the warning and restarts payments, the simulator models the connection storm in real time.
+
+### Part 2: Advanced Autonomous SRE Capabilities
+- 🧠 **Interactive Hindsight Memory Explorer**: Directly query the team memory bank from the UI to inspect hybrid search results, extracted entities, and memory facts.
+- 🚨 **Team Anti-Patterns Catalog**: Interactive modal displaying 41 documented historical mistakes and failed fixes across the infrastructure.
+- 💥 **Multi-Service Cascading Outage Simulation**: Simulates a cascade (`payments` -> `postgres` -> `orders` -> `api-gateway`) where Echo-Core pinpoints the root cause service.
+- 🔄 **Engineer Feedback & Rating Loop**: Allows rating mitigations and recording feedback, continuously enriching the memory bank.
+
+---
+
+## 5. Demo Scenarios (Step-by-Step)
+
+The dashboard includes one-click buttons in the top toolbar:
 
 | Scenario Button | Description | Memory State | Echo-Core Behavior |
 | :--- | :--- | :--- | :--- |
 | **Demo 1 (Cold Start)** | GPU threadpool memory fragmentation on `ml-ranker` | Novel / Empty | Zero-shot diagnosis; provides generic debugging advice and retains outcome upon resolution. |
 | **Demo 5 (Pattern Match)** | Redis OOM eviction storm on `auth` | Matched `INC-1002`/`INC-1014` | Recalls past eviction incident; recommends switching to `volatile-lru` and cites **Alex Mercer (Principal Infra)**. |
 | **Demo 20 (Failed Fix Warning)** | Postgres connection pool exhaustion on `payments` | Matched `INC-1001` & `INC-1020` | **Star of the Demo:** Identifies Friday deploy pattern. Issues **CRITICAL WARNING** against restarting pods. If the engineer runs restart anyway, the simulator demonstrates the catastrophic stampede! |
+| **Cascade Outage** | Multi-service failure cascade | Topology-wide | Echo-Core analyzes the dependency chain and pinpoints `payments` as the root cause. |
 
 ---
 
-## 5. Quick Start Instructions
+## 6. Quick Start Instructions
 
 ### Windows (One-Click)
 Simply double-click or run from command prompt:
@@ -145,7 +167,7 @@ run.bat
 
 ---
 
-## 6. Directory Structure
+## 7. Directory Structure
 ```
 MIC2/
 ├── run.bat                      # Windows one-click batch launcher
@@ -158,27 +180,18 @@ MIC2/
 ├── backend/
 │   ├── __init__.py
 │   ├── config.py                # Environment configuration
-│   ├── memory.py                # Hindsight wrapper (retain, recall, reflect)
+│   ├── memory.py                # Hindsight wrapper (retain, recall, reflect, search)
 │   ├── llm.py                   # Groq client with model fallback & retry
-│   ├── agent.py                 # Echo-Core agent loop with tools & briefings
-│   ├── simulator.py             # Telemetry & incident state machine
+│   ├── agent.py                 # Echo-Core agent loop with tools & safety checks
+│   ├── simulator.py             # Telemetry & cascading incident state machine
 │   └── main.py                  # FastAPI REST + Server-Sent Events (SSE)
 ├── data/
-│   └── seed_incidents.json      # 45 realistic historical incidents with anti-patterns
+│   └── seed_incidents.json      # 40 realistic historical incidents with anti-patterns
 ├── scripts/
 │   └── seed_memory.py           # Ingestion script into Hindsight bank
 └── frontend/
     └── sentinelops.html         # Echo-Core incident command center dashboard
 ```
-
----
-
-## 7. Edge Cases Handled
-- **Hindsight Unreachable**: Real-time status banner alerts the engineer; Echo-Core automatically falls back to zero-memory diagnostics without crashing.
-- **Duplicate Alerts Merged**: Consequent alerts on the same service with matching signatures are automatically deduplicated and badged.
-- **Cold-Start / Empty Recall**: When encountering novel issues, Echo-Core flags confidence as `Novel (Cold Start)` and records the new solution.
-- **Human-in-the-Loop Confirmation**: Mutating commands require typing the target service name before execution.
-- **LLM Tool Call Fault Tolerance**: Malformed tool calls are retried once, then gracefully fall back to structured JSON extraction.
 
 ---
 
