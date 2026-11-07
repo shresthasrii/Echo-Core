@@ -872,10 +872,10 @@ function connectSSE(){
         b.style.display="flex";
         if(data.hindsight.is_healthy){
           b.className="banner-offline ok";
-          $("#hsStatus").textContent="Connected (acme-sre)";
+          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code> (40+ incidents retained). Agent is memory-informed.</span><span id="hsStatus" style="font-weight:600">Online</span>`;
         }else{
           b.className="banner-offline";
-          $("#hsStatus").textContent="Offline ("+(data.hindsight.last_error||"Unreachable")+") - Running in zero-memory fallback mode";
+          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Offline (${esc(data.hindsight.last_error||"API Key not configured")})</span><span id="hsStatus" style="font-size:12px;opacity:0.85">Running in zero-memory fallback mode</span>`;
         }
       }
     }catch(e){console.error("SSE parse error:",e)}
