@@ -21,6 +21,7 @@ class Settings:
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "qwen/qwen3.8-27b")
+    GROQ_TERTIARY_MODEL: str = os.getenv("GROQ_TERTIARY_MODEL", "openai/gpt-oss-20b")
     
     # Server Configuration
     HOST: str = os.getenv("HOST", "0.0.0.0")

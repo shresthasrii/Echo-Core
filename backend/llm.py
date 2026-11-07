@@ -16,12 +16,16 @@ class GroqLLM:
         self,
         api_key: Optional[str] = None,
         primary_model: Optional[str] = None,
-        fallback_model: Optional[str] = None
+        fallback_model: Optional[str] = None,
+        tertiary_model: Optional[str] = None
     ):
         self.api_key = api_key or settings.GROQ_API_KEY
         self.primary_model = primary_model or settings.GROQ_MODEL
         self.fallback_model = fallback_model or settings.GROQ_FALLBACK_MODEL
+        self.tertiary_model = tertiary_model or settings.GROQ_TERTIARY_MODEL
         self.client: Optional[AsyncGroq] = None
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_ttl: float = 120.0
         self._init_client()
 
     def _init_client(self):
@@ -41,7 +45,7 @@ class GroqLLM:
         max_tokens: int = 1500
     ) -> Dict[str, Any]:
         """
-        Executes chat completion with retries and fallback models.
+        Executes chat completion with retries, tri-model fallback, and caching.
         Handles malformed tool calls by retrying once, then falling back to plain text.
         """
         if not self.client:
@@ -50,8 +54,19 @@ class GroqLLM:
                 "content": "LLM client not configured. Falling back to deterministic agent rules."
             }
 
-        # Try primary model first, then fallback model
-        models_to_try = [self.primary_model, self.fallback_model]
+        # Check prompt cache to save latency and token quota
+        import hashlib, time
+        cache_str = json.dumps({"m": messages, "t": bool(tools), "temp": temperature}, sort_keys=True)
+        cache_key = hashlib.sha256(cache_str.encode()).hexdigest()
+        now = time.time()
+        if cache_key in self._cache:
+            entry = self._cache[cache_key]
+            if now - entry["timestamp"] < self._cache_ttl:
+                logger.debug("Returning cached LLM completion")
+                return entry["data"]
+
+        # Tri-model fallback chain: Primary -> Secondary -> Tertiary
+        models_to_try = [self.primary_model, self.fallback_model, self.tertiary_model]
         
         for attempt_model in models_to_try:
             try:
@@ -99,22 +114,28 @@ class GroqLLM:
                         )
                         retry_msg = retry_resp.choices[0].message
                         if retry_msg.tool_calls:
-                            return {
+                            res = {
                                 "role": "assistant",
                                 "content": retry_msg.content or "",
                                 "tool_calls": retry_msg.tool_calls
                             }
+                            self._cache[cache_key] = {"timestamp": now, "data": res}
+                            return res
                     
-                    return {
+                    res = {
                         "role": "assistant",
                         "content": message.content or "",
                         "tool_calls": valid_tool_calls
                     }
+                    self._cache[cache_key] = {"timestamp": now, "data": res}
+                    return res
                     
-                return {
+                res = {
                     "role": "assistant",
                     "content": message.content or ""
                 }
+                self._cache[cache_key] = {"timestamp": now, "data": res}
+                return res
                 
             except RateLimitError as e:
                 logger.warning(f"Groq RateLimit on {attempt_model}: {e}. Trying fallback model...")

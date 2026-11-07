@@ -6,7 +6,8 @@ from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Query, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -342,7 +343,11 @@ async def sse_events(request: Request):
                 }
             }
 
-            yield f"data: {json.dumps(payload)}\n\n"
+            try:
+                data_str = json.dumps(jsonable_encoder(payload), default=str)
+                yield f"data: {data_str}\n\n"
+            except Exception as sse_err:
+                logger.error(f"Error encoding SSE payload: {sse_err}")
             await asyncio.sleep(1.0)
 
     return StreamingResponse(
@@ -354,6 +359,10 @@ async def sse_events(request: Request):
             "X-Accel-Buffering": "no"
         }
     )
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 # Serve Frontend
 @app.get("/", response_class=HTMLResponse)

@@ -24,24 +24,28 @@ flowchart TD
         UI_MemView["Recalled Incidents & Hindsight Inspector"]
         UI_MemExp["🧠 Live Hindsight Memory Explorer"]
         UI_AntiPat["🚨 Team Anti-Patterns Catalog"]
+        UI_PostMortem["📄 Automated Markdown Post-Mortem Generator"]
+        UI_Health["🩺 Live Baseline SLA Health Verification"]
         UI_Modal["Human Confirmation & Pre-flight Safety"]
     end
 
     subgraph Backend["FastAPI Backend (backend/main.py)"]
-        REST["REST Endpoints (/api/incidents, /api/command, /api/resolve)"]
+        REST["REST Endpoints (/api/incidents, /api/command, /api/resolve, /api/verify)"]
         SSE["Server-Sent Events Broadcaster (/api/events)"]
         Sim["Simulator (RPS, p95, Error Rates, Cascades, Logs)"]
     end
 
     subgraph Agent["Echo-Core Agent (backend/agent.py)"]
         AgentLoop["Autonomous On-Call Agent Loop"]
-        Safety["Pre-Flight Safety Check (Blocks Known Disasters)"]
+        Safety["Pre-Flight Safety Check (Dynamic 41 Failure Guardrails)"]
         Tools["Agent Tools: recall, runbook, propose_fix, run_command, retain"]
     end
 
-    subgraph LLM["LLM Engine (backend/llm.py)"]
-        GroqPrimary["Groq: openai/gpt-oss-120b"]
-        GroqFallback["Groq Fallback: qwen/qwen3.8-27b"]
+    subgraph LLM["LLM Engine with Tri-Model Fallback (backend/llm.py)"]
+        GroqPrimary["Primary: openai/gpt-oss-120b"]
+        GroqSecondary["Fallback: qwen/qwen3.8-27b"]
+        GroqTertiary["Emergency: openai/gpt-oss-20b"]
+        PromptCache["In-Memory SHA256 Prompt Response Cache (120s TTL)"]
     end
 
     subgraph Memory["Hindsight Memory Engine (backend/memory.py)"]

@@ -118,7 +118,27 @@ class IncidentAgent:
         """
         anti_patterns = await self.memory.get_anti_patterns()
         cmd_lower = command.lower()
-        
+
+        # 1. Global destructive command guard
+        destructive_keywords = [
+            ("drop database", "Irreversible database deletion"),
+            ("drop table", "Schema destruction causing catastrophic data loss"),
+            ("truncate", "Table wipe causing instant data loss"),
+            ("rm -rf /", "Total operating system destruction"),
+            (":(){ :|:& };:", "Fork bomb crashing host compute node"),
+            ("kill -9 -1", "Unconditional host process termination")
+        ]
+        for kw, risk in destructive_keywords:
+            if kw in cmd_lower:
+                return {
+                    "is_dangerous": True,
+                    "incident_id": "GLOBAL-GUARD",
+                    "warning": f"PROHIBITED DESTRUCTIVE ACTION: '{command}' detected.",
+                    "fatal_risk": risk,
+                    "safe_alternative": "Use targeted service-level mitigation instead."
+                }
+
+        # 2. Service-specific anti-pattern checks from Hindsight memory bank
         for ap in anti_patterns:
             if ap["service"] == service:
                 danger_text = ap["dangerous_action"].lower()
@@ -148,6 +168,42 @@ class IncidentAgent:
                         "warning": f"CRITICAL: {ap['dangerous_action']}",
                         "fatal_risk": "Exhausts NGINX worker connections and freezes all ingress traffic",
                         "safe_alternative": "Enable Envoy circuit breaker and fallback responses"
+                    }
+                # Check for vacuum full on postgres
+                if "vacuum full" in cmd_lower and ("vacuum" in danger_text or "lock" in danger_text):
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Exclusive table lock freezing all active database writes",
+                        "safe_alternative": "Run VACUUM ANALYZE concurrently without FULL lock"
+                    }
+                # Check for dlq redrive on queue
+                if ("redrive" in cmd_lower or "dlq" in cmd_lower) and ("redrive" in danger_text or "schema" in danger_text):
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Infinite poison message consumer crash loop and disk saturation",
+                        "safe_alternative": "Update consumer proto schema before redriving DLQ messages"
+                    }
+                # Check for deadlock_timeout or lock removal on orders
+                if ("deadlock" in cmd_lower or "lock" in cmd_lower) and ("deadlock" in danger_text or "lock" in danger_text):
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Excessive transaction aborts or race condition creating duplicate orders",
+                        "safe_alternative": "Order lock acquisition sequence alphabetically by resource ID"
+                    }
+                # Check for startupProbe threshold or blind restart on ml-ranker
+                if ("startupprobe" in cmd_lower or "failurethreshold" in cmd_lower) and "startupprobe" in danger_text:
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Extreme 15-minute pod registration delays during autoscaling",
+                        "safe_alternative": "Mount weights via ReadWriteMany volume or pre-warm nodes"
                     }
 
         return {"is_dangerous": False}

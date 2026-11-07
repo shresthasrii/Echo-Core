@@ -30,6 +30,7 @@ if not exist .env (
 
 :: 3. Check and install dependencies
 echo [1/3] Verifying dependencies...
+set PYYAML_FORCE_LIBYAML=0
 pip install -r requirements.txt --quiet
 
 :: 4. Launch browser after a brief delay

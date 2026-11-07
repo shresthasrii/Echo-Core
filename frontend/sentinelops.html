@@ -366,6 +366,7 @@ function elInc(i){
           <span><b>Echo-Core On-Call Briefing</b></span>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <button class="btn sm b-comp" style="font-size:11px;padding:3px 8px">⚖️ Compare vs Generic</button>
+            <button class="btn sm b-verify" style="font-size:11px;padding:3px 8px">🩺 Verify Health</button>
             <button class="btn sm b-pm" style="font-size:11px;padding:3px 8px">📄 Post-Mortem</button>
             <div class="brief-toggle" data-id="${i.id}">
               <button class="b-mem active" data-mode="mem">🧠 Memory ON</button>
@@ -415,6 +416,25 @@ function elInc(i){
   $(".b-pm",e).onclick=evt=>{
     evt.stopPropagation();
     showPostMortemModal(i);
+  };
+
+  $(".b-verify",e).onclick=async evt=>{
+    evt.stopPropagation();
+    const btn = $(".b-verify", e);
+    btn.textContent = "Checking...";
+    try {
+      const res = await fetch(`/api/incidents/${i.id}/verify`);
+      const v = await res.json();
+      btn.textContent = "🩺 Verify Health";
+      if(v.is_healthy){
+        toast("🩺 Baseline Verified Nominal", `${v.service} is nominal (p95: ${v.current_p95}ms, Error: ${v.current_err}%)`, 0);
+      } else {
+        toast("⚠️ Health Check Warning", `${v.service} still impacted (p95: ${v.current_p95}ms, Error: ${v.current_err}%)`, 2);
+      }
+    } catch(err) {
+      btn.textContent = "🩺 Verify Health";
+      toast("Health Check Failed", String(err), 1);
+    }
   };
 
   const a=$(".acts",e);
