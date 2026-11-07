@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Echo-Core – Autonomous Incident Response with Persistent Memory</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root{--bg:#06150f;--sf:#0c231a;--sf2:#123226;--tx:#f4f7e8;--mu:#8fae9c;--bd:#1f4a39;--ac:#f6ef6a;--fade:var(--ac);--pg:var(--sf);--bgf:var(--bg);--g1:#38d9e8;--g2:#a78bfa;--g3:#f472b6;--g4:#60a5fa;--r:12px;--fh:Inter,system-ui,sans-serif;--fb:Inter,system-ui,-apple-system,sans-serif;--fm:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;--s1:#ff6b57;--s2:#ffa87a;--s3:#f6ef6a;--s4:#7fb69a;--ok:#7bd88f;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme=geordie]{--bg:#0a0a0a;--sf:#141414;--sf2:#1a1a1c;--tx:#fff;--mu:#a1a1ad;--bd:#2a2a30;--ac:#a855f7;--pri:#7c3aed;--onpri:#fff;--r:12px;--g1:#a855f7;--g2:#d946ef;--g3:#7c3aed;--g4:#2563eb;--s1:#ff4d6d;--s2:#d946ef;--s3:#a855f7;--s4:#2563eb;--ok:#fff}
+:root[data-theme=midnight]{--bg:#0b1220;--sf:#131d33;--sf2:#1b2a47;--tx:#eef3fb;--mu:#a3b3cf;--bd:#2d4067;--ac:#ff1e3c;--s1:#ff5a5f;--s2:#ffa04a;--s3:#ffe27a;--s4:#6cb2ff;--ok:#5ee0a0}
+:root[data-theme=onyx]{--bg:#000;--sf:#0a0a0b;--sf2:#131315;--tx:#eef0f3;--mu:#858b94;--bd:#2a2a2e;--ac:#ff1e3c;--fade:var(--ac);--pg:var(--sf);--bgf:var(--bg);--r:10px;--s1:#ff1e3c;--s2:#ff5f3a;--s3:#d0d5dc;--s4:#7b8490;--ok:#f2f4f7}
+@media(prefers-color-scheme:dark){:root:not([data-theme]){--bg:#0a1220;--sf:#111b2e;--sf2:#18243b;--tx:#e4ecf8;--mu:#8a9bb5;--bd:#26344f;--ac:#4cc3ff;--s1:#ff5a5f;--s2:#ff9248;--s3:#f5c84b;--s4:#5ba8ff;--ok:#3ddc97}}
+:root[data-theme=light]{color-scheme:light;--bg:#eef1f4;--sf:#fff;--sf2:#f3f5f7;--tx:#14202b;--mu:#566676;--bd:#cdd6df;--ac:#0a6c4a;--g1:#0891b2;--g2:#7c3aed;--g3:#db2777;--g4:#2563eb;--s1:#c62828;--s2:#d0561a;--s3:#8f6b00;--s4:#2563b8;--ok:#1b8a52}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 var(--fb);transition:background .4s,color .4s}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+[data-sev="0"]{--c:var(--ok)}[data-sev="1"]{--c:var(--s1)}[data-sev="2"]{--c:var(--s2)}[data-sev="3"]{--c:var(--s3)}[data-sev="4"]{--c:var(--s4)}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding:16px 20px}
+.brand{display:flex;align-items:center;gap:12px}
+h1{font:700 20px/1.1 var(--fh);margin:0;letter-spacing:-.01em}
+.brand small{color:var(--mu)}
+.live{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--bd);border-radius:99px;color:var(--ok);font-size:12px}
+.live i{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blink 1.6s infinite}
+.live.off{color:var(--s1)}.live.off i{animation:none}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:flex;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;background:var(--sf);padding:7px 12px}
+.seg button[aria-pressed=true]{background:var(--ac);color:var(--bg);font-weight:600}
+.btn{border:1px solid var(--bd);background:var(--sf);border-radius:calc(var(--r) - 3px);padding:7px 12px;transition:border-color .2s,background .2s}
+.btn:hover{border-color:var(--ac)}.btn.sm{padding:5px 10px;font-size:13px}
+.btn.pri{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weight:600}
+.btn.demo{background:linear-gradient(135deg,var(--ac),var(--g2));color:#000;border:0;font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+main{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;padding:0 20px 28px}
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{position:relative;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px;display:grid;gap:2px;min-width:0;--k:var(--tx)}
+.kpi small{color:var(--mu)}.kpi .val{font:700 30px/1.1 var(--fh);color:var(--k);transition:color .5s;letter-spacing:-.02em}
+.kpi[data-s=warn]{--k:var(--s3)}.kpi[data-s=bad]{--k:var(--s1)}
+.kpi .sub{color:var(--mu);font-size:12px}
+.kpi svg{width:100%;height:30px;margin-top:6px;color:var(--k);transition:color .5s}
+.kpi polyline{fill:none;stroke:currentColor;stroke-width:1.8;vector-effect:non-scaling-stroke}
+.p{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;min-width:0}
+#pInc{grid-column:span 5}#pGraph{grid-column:span 7}#pLogs{grid-column:1/-1}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
+h2{font:700 16px/1.2 var(--fh);margin:0}
+.cnt{color:var(--mu);font-weight:400;margin-left:6px}
+.chip{border:1px solid var(--bd);background:var(--sf2);border-radius:99px;padding:3px 11px;font-size:13px}
+.chip[aria-pressed=true]{background:var(--ac);color:var(--bg);border-color:var(--ac)}
+#incList{max-height:560px;overflow:auto}
+.inc{margin-top:10px;border:1px solid var(--bd);border-left:5px solid var(--c);border-radius:calc(var(--r) - 4px);background:var(--sf2);transition:border-color .7s,opacity .3s,transform .3s}
+.inc.new{animation:in .4s}.inc.gone{opacity:0;transform:translateX(24px)}
+.inc.bump{animation:bump .9s}
+.ih{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 12px;cursor:pointer}
+.ih:focus-visible{outline:2px solid var(--ac)}
+.bd{background:var(--c);color:#fff;font-weight:700;font-size:12px;padding:3px 8px;border-radius:6px;transition:background .7s;min-width:50px;text-align:center}
+[data-theme=signal] .bd{color:#000}
+.it{display:grid;min-width:0}.it b{overflow-wrap:anywhere}.it small{color:var(--mu);display:flex;flex-wrap:wrap;gap:2px 12px}
+.chev{transition:transform .3s;color:var(--mu)}.open .chev{transform:rotate(180deg)}
+.body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s}.open .body{grid-template-rows:1fr}
+.body>div{overflow:hidden;padding:0 12px}.open .body>div{padding-bottom:12px}
+.cause{margin:0 0 8px}.tl{list-style:none;margin:0 0 10px;padding:0 0 0 12px;border-left:2px solid var(--bd);font-size:13px}
+.tl li{margin:4px 0}.tl time{color:var(--mu);font-family:var(--fm);margin-right:8px}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.empty,.errst{border:1px dashed var(--bd);border-radius:var(--r);padding:26px 16px;text-align:center;display:grid;gap:8px;justify-items:center;margin-top:10px}
+.empty[hidden]{display:none}.empty p,.errst span{margin:0;color:var(--mu);max-width:36ch}
+.errst{display:none;border-color:var(--s1);grid-column:1/-1}.errst b{color:var(--s1)}
+[data-err] .errst{display:grid}[data-err] .kpi{display:none}
+[data-err] #pLogs .real>:not(.errst){display:none!important}
+#kg{width:100%;height:auto;display:block;margin-top:6px;background:radial-gradient(circle at 1px 1px,var(--bd) 1px,transparent 0) 0 0/22px 22px;border-radius:calc(var(--r) - 4px)}
+.node{cursor:grab;outline:none;touch-action:none;transition:opacity .25s}
+.node circle{fill:var(--sf2);stroke:var(--c);stroke-width:3;transition:stroke .7s,fill .2s}
+.node:hover circle,.node:focus-visible circle{fill:var(--bd)}
+.node.sel circle{stroke-width:6}.node[data-sev="1"] circle{animation:ring 1.3s infinite}
+.node text{fill:var(--tx);font-size:12px;text-anchor:middle;pointer-events:none;user-select:none}.node .n{font-weight:700;font-size:13px}
+.edge{stroke:var(--bd);stroke-width:1.6;transition:opacity .25s,stroke .25s}.edge.hi{stroke:var(--ac);stroke-width:3}
+.dim{opacity:.18}
+.info{margin:8px 0 0;color:var(--mu);min-height:21px}.info b{color:var(--tx)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.bar input{flex:1 1 200px;min-width:0;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:calc(var(--r) - 3px);padding:8px 12px;font:inherit}
+.logs{height:300px;overflow:auto;font:12.5px/1.5 var(--fm);border:1px solid var(--bd);border-radius:calc(var(--r) - 4px);background:var(--sf2)}
+.ln{display:flex;flex-wrap:wrap;gap:0 12px;padding:3px 10px;border-bottom:1px solid var(--bd)}.ln time{color:var(--mu)}
+.ln .lv{font-weight:700;width:46px;color:var(--c)}.ln .sv{color:var(--ac)}.ln .ms{flex:1 1 220px;overflow-wrap:anywhere}
+.ln[data-l=ERROR]{--c:var(--s1)}.ln[data-l=WARN]{--c:var(--s3)}.ln[data-l=INFO]{--c:var(--ok)}
+mark{background:var(--ac);color:var(--bg);border-radius:3px;padding:0 2px}
+.sk{display:block;border-radius:8px;margin-top:10px;background:linear-gradient(90deg,var(--sf2) 25%,var(--bd) 50%,var(--sf2) 75%) 0 0/200% 100%;animation:sh 1.2s linear infinite}
+.skel{display:none}.loading .skel{display:block}.loading .real{display:none}
+.loading .kpi>*{visibility:hidden}.loading .kpi::after{content:"";position:absolute;inset:12px;border-radius:8px;background:linear-gradient(90deg,var(--sf2) 25%,var(--bd) 50%,var(--sf2) 75%) 0 0/200% 100%;animation:sh 1.2s linear infinite}
+#toasts{position:fixed;right:0;bottom:0;display:grid;gap:8px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:min(400px,100%);z-index:50;pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--sf);border:1px solid var(--bd);border-left:5px solid var(--c);border-radius:var(--r);padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.28);animation:in .35s;transition:opacity .3s,transform .3s}
+.toast div{flex:1;display:grid;min-width:0}.toast small{color:var(--mu)}.toast.out{opacity:0;transform:translateX(30px)}
+dialog{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:var(--r);padding:20px;width:min(460px,calc(100vw - 24px))}
+dialog::backdrop{background:rgba(0,0,0,.55)}dialog h3{margin:0 0 10px;font:700 17px var(--fh)}
+code{display:block;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px;font-family:var(--fm);font-size:13px;overflow-wrap:anywhere;margin:10px 0}
+dialog label{display:block;margin:10px 0 4px}dialog input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font:inherit}
+.dact{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.warn{color:var(--s2);margin:0}
+body{background:var(--bg)}body::before{display:none}
+h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;font-size:22px}
+.p,.kpi{background:var(--sf);clip-path:none;border:1px solid var(--bd);border-radius:var(--r)}
+.p{padding:20px}.kpi{--k:var(--tx);padding:16px;gap:4px}
+.kpi .val{text-shadow:none;font-size:32px}.kpi .name{font-weight:600;font-size:14px;color:var(--tx)}
+.kpi .hint{color:var(--mu);font-size:12.5px}.kpi .sub{font-weight:600;color:var(--k)}.kpi[data-s=""] .sub{color:var(--ok)}
+.inc{box-shadow:none}.node circle,.node.sel circle{filter:none}.node.sel circle{stroke-width:6}
+.live,.btn:hover,.btn.pri,.seg button[aria-pressed=true]{box-shadow:none}.ln .lv{text-shadow:none}
+.btn.pri,.seg button[aria-pressed=true]{background:var(--ac);color:var(--bg)}
+dialog{box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#kg{background:var(--sf2);border:1px solid var(--bd)}
+.bd{min-width:74px;font-size:12.5px}[data-theme=light] .bd{color:#fff}
+.sub2{margin:2px 0 10px;color:var(--mu);font-size:13px;max-width:62ch}
+.lbl{margin:12px 0 4px;font-weight:600;font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--mu);margin:6px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.status{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between;background:var(--sf);border:1px solid var(--bd);border-left:8px solid var(--c);border-radius:var(--r);padding:16px 20px;transition:border-color .6s}
+.status h2{font-size:20px}.status p{margin:2px 0 0;color:var(--mu);max-width:60ch}
+.logo{flex:none}
+.ph h2{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac)}
+.donut{width:88px;height:88px;flex:none}.dt,.ds{fill:none;stroke-width:9}.dt{stroke:var(--bd)}
+.ds{stroke:var(--c);stroke-dasharray:0 214;transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dasharray .7s,stroke-dashoffset .7s}
+.donut text{fill:var(--tx);font:700 24px Inter,system-ui,sans-serif;text-anchor:middle}
+.sum{display:flex;align-items:center;gap:18px}.legend.col{flex-direction:column;gap:4px;margin:0}.legend b{color:var(--tx);margin-left:6px}
+.chip{background:transparent}.chip[aria-pressed=true]{background:color-mix(in srgb,var(--ac) 18%,transparent);color:var(--tx);border-color:var(--ac)}
+.btn.pri,.seg button[aria-pressed=true]{background:var(--pri,var(--ac));color:var(--onpri,var(--bg))}
+.kpi polyline{stroke-linejoin:round;stroke-linecap:round}
+[data-theme=geordie] body{background:radial-gradient(1000px 360px at 50% -170px,rgba(168,85,247,.26),transparent),var(--bg)}
+[data-theme=geordie] .p,[data-theme=geordie] .kpi,[data-theme=geordie] .status{border-color:#26262b}
+[data-theme=geordie] [data-sev="4"] .bd{color:#fff}
+html{scroll-behavior:smooth}
+.p,.kpis,.logs,.chip,.seg button{transition:background-color .4s,border-color .4s,color .4s}
+.btn:active{transform:scale(.96)}
+.status h2{font-size:26px;font-weight:600;letter-spacing:-.02em}
+#pInc{grid-column:span 5}#pGraph{grid-column:span 7}
+.kpis{gap:0;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+.kpis .kpi{background:transparent;border:0;border-right:1px solid var(--bd);border-radius:0;padding:18px 22px}
+.kpis .kpi:nth-child(4){border-right:0}.kpis .errst{margin:14px;border-color:var(--s1)}
+@media(max-width:1000px){.kpis .kpi:nth-child(2){border-right:0}.kpis .kpi:nth-child(-n+2){border-bottom:1px solid var(--bd)}}
+.kpi .val{font-weight:300;font-size:38px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.kpi svg{height:38px}.kpi .sa{fill:currentColor;opacity:.14}
+.kpi .sl{fill:none;stroke:currentColor;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+#incList{padding:4px 4px 0 8px}
+.inc{background:transparent;border:0;border-left:2px solid var(--bd);border-radius:0;margin:0 0 2px 6px;padding-left:18px;position:relative;box-shadow:none}
+.inc.open{border-left-color:var(--c)}
+.inc::before{content:"";position:absolute;left:-8px;top:14px;width:14px;height:14px;border-radius:50%;background:var(--c);border:3px solid var(--sf);transition:background .7s}
+.inc[data-sev="1"]::before{animation:ping 1.6s infinite}
+.inc.bump{animation:none}.inc.bump::before{animation:ping .9s 2}
+.ih{padding:10px 0}.body>div{padding:0}.open .body>div{padding-bottom:12px}
+.ih .bd{background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);min-width:0;padding:2px 9px;border-radius:99px;transition:background .7s,color .7s}
+.edge{stroke-dasharray:3 7;animation:flow 1.6s linear infinite}.edge.hi{stroke-dasharray:7 5;animation-duration:.7s}
+.node circle{transition:stroke .7s,fill .2s,r .2s}.node:hover circle{r:24}
+.logs{mask-image:linear-gradient(transparent,#000 10px,#000 calc(100% - 10px),transparent)}
+body:not(.loading) main>*{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+main>:nth-child(2){animation-delay:.07s}main>:nth-child(3){animation-delay:.14s}main>:nth-child(4){animation-delay:.21s}main>:nth-child(5){animation-delay:.28s}
+dialog[open]{animation:pop .28s cubic-bezier(.2,.8,.2,1)}dialog[open]::backdrop{animation:fadein .28s}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--c)}100%{box-shadow:0 0 0 12px transparent}}
+@keyframes flow{to{stroke-dashoffset:-20}}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.96)}}@keyframes fadein{from{opacity:0}}
+@keyframes sh{to{background-position:-200% 0}}@keyframes in{from{opacity:0;transform:translateY(10px)}}
+@keyframes bump{0%{box-shadow:0 0 0 0 var(--c)}100%{box-shadow:0 0 0 14px transparent}}
+@keyframes ring{50%{stroke-width:7}}@keyframes blink{50%{opacity:.25}}
+@media(max-width:1000px){#pInc,#pGraph{grid-column:1/-1}.kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){header{padding:12px}main{padding:0 12px 24px;gap:12px}.p{padding:12px}.kpi .val{font-size:24px}.tools{width:100%}.seg{width:100%}.seg button{flex:1;padding:9px 4px}.btn{padding:9px 12px}.logs{height:260px}}
+
+/* ECHO-CORE CUSTOM STYLES */
+.banner-offline{background:rgba(255,107,87,0.18);border:1px solid var(--s1);border-radius:var(--r);padding:10px 16px;margin:0 20px 12px;color:var(--s1);display:flex;align-items:center;justify-content:space-between;font-weight:500}
+.banner-offline.ok{background:rgba(123,216,143,0.15);border-color:var(--ok);color:var(--ok)}
+.brief-box{background:var(--sf);border:1px solid var(--bd);border-radius:calc(var(--r) - 2px);padding:14px;margin:10px 0}
+.brief-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.brief-toggle{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;font-size:12px}
+.brief-toggle button{border:0;background:var(--sf2);padding:4px 9px;color:var(--mu)}
+.brief-toggle button.active{background:var(--ac);color:var(--bg);font-weight:700}
+.warn-failed{background:rgba(255,90,95,0.15);border-left:4px solid var(--s1);border-radius:4px;padding:8px 12px;margin:8px 0;color:#ff9b9e;font-size:13px}
+.warn-failed b{color:var(--s1);display:block;margin-bottom:2px}
+.fix-box{background:rgba(123,216,143,0.1);border-left:4px solid var(--ok);border-radius:4px;padding:8px 12px;margin:8px 0;color:var(--tx);font-size:13px}
+.fix-box b{color:var(--ok);display:block;margin-bottom:2px}
+.mem-view{margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px}
+.mem-pill{display:inline-block;background:color-mix(in srgb,var(--ac) 14%,transparent);border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);border-radius:4px;padding:2px 6px;font-size:11px;font-family:var(--fm);color:var(--ac);margin:2px 4px 2px 0}
+.dedup-badge{background:var(--s3);color:#000;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:6px}
+</style></head>
+<body class="loading">
+<header>
+<div class="brand"><svg class="logo" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><path d="M16 2 28 9v14l-12 7L4 23V9z" fill="none" stroke="var(--ac)" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 9.5 22 13v6l-6 3.5L10 19v-6z" fill="var(--ac)"/></svg><div><h1>Echo-Core</h1><small>Incident Response Agent with Persistent Memory</small></div><span class="live" id="live"><i></i><span>Live</span></span></div>
+<div class="tools">
+<div class="seg" role="group" aria-label="Visual direction"><button data-t="geordie">Geordie</button><button data-t="forest">Forest</button><button data-t="midnight">Midnight</button><button data-t="onyx">Onyx</button><button data-t="light">Light</button></div>
+<button class="btn demo" id="bDemo1" title="Demo 1: Novel incident (Cold Start / Generic Advice)">Demo 1 (Cold Start)</button>
+<button class="btn demo" id="bDemo5" title="Demo 5: Similar past incident recall">Demo 5 (Pattern Match)</button>
+<button class="btn demo" id="bDemo20" title="Demo 20: Star Feature - Warning on Failed Fix">Demo 20 (Failed Fix Warning)</button>
+<button class="btn" id="bInc" title="Simulate a new incident">Simulate incident</button>
+<button class="btn" id="bOut" title="Simulate outage">Simulate outage</button>
+<button class="btn" id="bClr" title="Clear open incidents">Clear incidents</button>
+</div></header>
+
+<div id="hsBanner" class="banner-offline ok" style="display:none;">
+  <span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code>. Agent is memory-informed.</span>
+  <span id="hsStatus">Online</span>
+</div>
+
+<main>
+<section class="status" id="status" data-sev="0" aria-live="polite"><div><h2 id="stT"></h2><p id="stD"></p></div><div class="sum"><svg class="donut" viewBox="0 0 88 88" role="img" aria-label="Open incidents by severity"><circle class="dt" cx="44" cy="44" r="34"/><circle id="d1" class="ds" data-sev="1" cx="44" cy="44" r="34"/><circle id="d2" class="ds" data-sev="2" cx="44" cy="44" r="34"/><circle id="d3" class="ds" data-sev="3" cx="44" cy="44" r="34"/><circle id="d4" class="ds" data-sev="4" cx="44" cy="44" r="34"/><text id="dN" x="44" y="52"></text></svg><div class="legend col" id="stLg" aria-label="Open incidents by severity"></div></div></section>
+<section class="kpis" id="kpis" aria-label="Live metrics"></section>
+<section class="p" id="pInc"><div class="ph"><h2>Incidents<span class="cnt" id="cInc"></span></h2><button class="chip" id="fClr" hidden></button></div>
+<p class="sub2">Live alerts. Expand to see Echo-Core's Agent Briefing, Memory ON/OFF toggle, and Failed Fix Warnings.</p>
+<div class="real"><div id="incList"></div><div class="empty" id="incEmpty" hidden></div></div><div class="skel"></div></section>
+<section class="p" id="pGraph"><div class="ph"><h2>Service knowledge graph</h2><button class="btn sm" id="gRst">Reset layout</button></div>
+<p class="sub2">How services depend on each other. The ring colour shows health. Click a service to filter its incidents.</p>
+<div class="real"><div class="legend"></div><svg id="kg" viewBox="0 0 600 340" role="group" aria-label="Service dependency graph"></svg><p class="info" id="kgInfo"></p></div><div class="skel"></div></section>
+<section class="p" id="pLogs"><div class="ph"><h2>Live logs<span class="cnt" id="lCnt"></span></h2></div>
+<p class="sub2">System events streamed via Server-Sent Events (SSE). Search by service or keyword.</p>
+<div class="real"><div class="bar"><input id="q" type="search" placeholder="Search service or message" aria-label="Search logs"><span id="chips"></span><button class="btn sm" id="bPause" aria-pressed="false">Pause</button></div>
+<div class="logs" id="logs" role="log"></div>
+<div class="empty" id="logEmpty" hidden><b>No matching log lines</b><p>Nothing matches this search and level.</p><button class="btn sm" id="lClr">Clear search</button></div></div><div class="skel"></div></section>
+</main>
+<div id="toasts" aria-live="polite"></div>
+
+<!-- COMMAND CONFIRMATION DIALOG -->
+<dialog id="dlg"><h3 id="dT"></h3><p id="dD" style="margin:0;color:var(--mu)"></p><code id="dC"></code>
+<p class="warn" id="dW">⚠️ This affects live traffic. It cannot be undone from here.</p>
+<div id="dTy"><label for="dIn">Type the service name (<b id="dTargetSvc"></b>) to confirm:</label><input id="dIn" autocomplete="off" placeholder="service name"></div>
+<div class="dact"><button class="btn" id="dNo">Cancel</button><button class="btn pri" id="dGo">Run command</button></div></dialog>
+
+<!-- RESOLUTION & FEEDBACK DIALOG -->
+<dialog id="resDlg"><h3>Resolve Incident & Retain in Memory</h3>
+<p style="margin:0 0 10px;color:var(--mu)">Marking resolved feeds the outcome and your feedback back into Hindsight memory so Echo-Core gets smarter.</p>
+<label for="resNotes">Engineer Resolution Notes:</label>
+<input id="resNotes" value="Mitigation confirmed. Metrics returned to baseline.">
+<div style="margin:12px 0 6px">
+  <label><input type="checkbox" id="resWorked" checked> Agent suggestion was effective</label>
+</div>
+<div class="dact"><button class="btn" id="resNo">Cancel</button><button class="btn pri" id="resGo">Resolve & Retain</button></div></dialog>
+
+<script>
+const $=(s,e=document)=>e.querySelector(s),rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0],clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=t=>new Date(t).toTimeString().slice(0,8),ago=t=>{const s=(Date.now()-t)/1e3|0;return s<60?s+"s ago":(s/60|0)+"m ago"};
+const SEVN={1:"Critical",2:"High",3:"Medium",4:"Low"},st={q:"",lv:"ALL",sel:null,paused:false,hover:false,memModes:{}};
+const N0={"api-gateway":[300,40],auth:[110,100],orders:[300,130],search:[500,100],payments:[160,220],"ml-ranker":[520,220],postgres:[250,300],redis:[410,290],queue:[50,300]};
+let N=JSON.parse(JSON.stringify(N0));
+const E=[["api-gateway","auth"],["api-gateway","orders"],["api-gateway","search"],["orders","payments"],["orders","postgres"],["orders","redis"],["payments","postgres"],["payments","queue"],["search","ml-ranker"],["search","redis"],["auth","redis"]];
+const CMDS=[
+  {k:"restart",label:"Restart service",risk:1,cmd:s=>`kubectl rollout restart deploy/${s}`},
+  {k:"scale",label:"Scale capacity",risk:0,cmd:s=>`kubectl scale deploy/${s} --replicas=6`},
+  {k:"rollback",label:"Undo last deploy",risk:1,cmd:s=>`kubectl rollout undo deploy/${s}`},
+  {k:"resolve",label:"Resolve & Retain",risk:0,cmd:s=>`ops incident resolve --service ${s}`}
+];
+let incs=[];
+const DESC={
+  restart:"Restarts deployment pods. (WARNING: Can cause connection storms if connection pool is bottleneck!)",
+  rollback:"Rolls back deployment to previous replica revision.",
+  scale:"Adds replica capacity to distribute request load.",
+  resolve:"Closes incident and retains full diagnosis & resolution into Hindsight memory."
+};
+
+const loading=()=>document.body.classList.contains("loading");
+$("#pInc .skel").innerHTML='<i class="sk" style="height:58px"></i>'.repeat(3);
+$("#pGraph .skel").innerHTML='<i class="sk" style="height:300px"></i>';
+$("#pLogs .skel").innerHTML='<i class="sk" style="height:16px"></i>'.repeat(9);
+
+["ALL","ERROR","WARN","INFO"].forEach(l=>{const b=document.createElement("button");b.className="chip";b.textContent=l[0]+l.slice(1).toLowerCase();b.dataset.l=l;b.setAttribute("aria-pressed",l==="ALL");b.onclick=()=>{st.lv=l;document.querySelectorAll("#chips .chip").forEach(c=>c.setAttribute("aria-pressed",c===b));renderLogs()};$("#chips").append(b)});
+
+/* metrics */
+const K=[["rps","Traffic","Requests handled each second"],["p95","Response time","Slowest 1 in 20 requests latency"],["err","Failed requests","Percentage of requests failing"],["inc","Open incidents","Problems requiring on-call attention"]],M={rps:4200,p95:150,err:.3},H={rps:[],p95:[],err:[],inc:[]};
+K.forEach(([k,l,hn])=>{const d=document.createElement("div");d.className="kpi";d.id="k-"+k;d.innerHTML=`<small class="name">${l}</small><b class="val">–</b><span class="sub"></span><small class="hint">${hn}</small><svg viewBox="0 0 100 28" preserveAspectRatio="none"><path class="sa"/><path class="sl"/></svg>`;$("#kpis").append(d)});
+
+function spark(k){const h=H[k];if(!h||h.length<2)return"M0,14 L100,14";const mn=Math.min(...h),mx=Math.max(...h),p=h.map((v,i)=>[i*100/(h.length-1||1),26-(v-mn)/(mx-mn||1)*22]);let d=`M${p[0][0]},${p[0][1].toFixed(1)}`;for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];d+=`Q${a[0].toFixed(1)},${a[1].toFixed(1)} ${((a[0]+b[0])/2).toFixed(1)},${((a[1]+b[1])/2).toFixed(1)}`}return d+`L100,${p[p.length-1][1].toFixed(1)}`}
+const F={rps:x=>Math.round(x).toLocaleString(),p95:x=>Math.round(x)+" ms",err:x=>x.toFixed(2)+"%",inc:x=>Math.round(x)};
+function tw(el,to,f){const from=el._v===undefined?to:el._v,t0=performance.now();el._v=to;cancelAnimationFrame(el._r);const s=n=>{const p=Math.min(1,(n-t0)/700),e=1-Math.pow(1-p,3);el.textContent=f(from+(to-from)*e);if(p<1)el._r=requestAnimationFrame(s)};el._r=requestAnimationFrame(s)}
+
+function renderK(){
+  const crit=incs.filter(i=>i.sev===1).length;
+  K.forEach(([k])=>{
+    const d=$("#k-"+k);tw($(".val",d),{rps:M.rps,p95:M.p95,err:M.err,inc:incs.length}[k],F[k]);
+    const q=spark(k);$(".sl",d).setAttribute("d",q);$(".sa",d).setAttribute("d",q+"L100 28L0 28Z");
+    const h=H[k];if(h&&h.length>1){
+      const tr=(h[h.length-1]-h[0])/(h[0]||1)*100;
+      $(".sub",d).textContent={rps:(tr>=0?"Up ":"Down ")+Math.abs(tr).toFixed(1)+"% this minute",p95:M.p95>300?"Critical latency":M.p95>220?"Elevated":"Normal",err:M.err>2?"High failure rate":M.err>1?"Warning":"Normal",inc:crit?crit+" critical":incs.length?"Attention required":"All normal"}[k];
+    }
+  });
+  const bad=M.p95>300||M.err>2||incs.some(i=>i.sev===1),warn=M.p95>220||M.err>1||incs.length>3;
+  ["p95","err"].forEach(k=>$("#k-"+k).dataset.s=(k==="p95"?M.p95>300:M.err>2)?"bad":(k==="p95"?M.p95>220:M.err>1)?"warn":"");
+  $("#k-inc").dataset.s=bad?"bad":warn?"warn":"";renderStatus();
+}
+
+function renderStatus(){
+  const n=incs.length,w=n?Math.min(...incs.map(i=>i.sev)):0,c=incs.filter(i=>i.sev===1).length;
+  $("#status").dataset.sev=w;const C=213.63;let off=0;
+  [1,2,3,4].forEach(s=>{const k=incs.filter(i=>i.sev===s).length,len=n?k/n*C:0,e=$("#d"+s);e.style.strokeDasharray=len+" "+C;e.style.strokeDashoffset=-off;off+=len});
+  $("#dN").textContent=n;
+  $("#stLg").innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"]].map(([s,nm])=>`<span data-sev="${s}"><i></i>${nm}<b>${incs.filter(i=>i.sev===s).length}</b></span>`).join("");
+  $("#stT").textContent=n?`${n} open incident${n===1?"":"s"}${w<=2?" requiring attention":""}`:"All systems operational";
+  $("#stD").textContent=n?(c?`${c} critical incident active. Echo-Core has synthesized memory briefings for each below.`:"Click an incident to inspect the memory-informed briefing vs generic advice."):"No active incidents. Live telemetry and logs stream continuously via SSE.";
+}
+
+/* toasts */
+function toast(t,b,sev,act){
+  const e=document.createElement("div");e.className="toast";e.dataset.sev=sev||0;
+  e.innerHTML=`<span class="bd">${sev?SEVN[sev]:"OK"}</span><div><b>${esc(t)}</b><small>${esc(b)}</small></div>`;
+  if(act){const x=document.createElement("button");x.className="btn sm";x.textContent="View";x.onclick=()=>{act();e.remove()};e.append(x)}
+  const c=$("#toasts");c.prepend(e);while(c.children.length>4)c.lastChild.remove();
+  setTimeout(()=>{e.classList.add("out");setTimeout(()=>e.remove(),300)},6500);
+}
+
+/* incidents rendering */
+function elInc(i){
+  const e=document.createElement("article");e.className="inc new";e.dataset.id=i.id;
+  e.innerHTML=`
+    <button class="ih" aria-expanded="false">
+      <span class="bd"></span>
+      <span class="it"><b></b><small><span class="id"></span><span class="sv"></span><span class="ag"></span><span class="dd"></span></small></span>
+      <svg class="chev" viewBox="0 0 12 12" width="14" height="14"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+    <div class="body"><div>
+      <!-- AGENT BRIEFING & MEMORY TOGGLE -->
+      <div class="brief-box">
+        <div class="brief-header">
+          <span><b>Echo-Core On-Call Briefing</b></span>
+          <div class="brief-toggle" data-id="${i.id}">
+            <button class="b-mem active" data-mode="mem">🧠 Memory ON</button>
+            <button class="b-gen" data-mode="gen">⚡ Memory OFF</button>
+          </div>
+        </div>
+        <div class="brief-content" id="bc-${i.id}">
+          <p style="margin:4px 0;color:var(--mu)">Synthesizing Hindsight memory briefing...</p>
+        </div>
+      </div>
+      <p class="lbl">Timeline & Events</p>
+      <ul class="tl"></ul>
+      <p class="lbl">Mitigation Actions</p>
+      <div class="acts"></div>
+    </div></div>
+  `;
+
+  const h=$(".ih",e);
+  h.onclick=()=>{
+    const opened=e.classList.toggle("open");
+    h.setAttribute("aria-expanded",opened);
+    if(opened)fetchIncidentDetail(i);
+  };
+
+  // Wire Memory toggle buttons
+  const toggleBar=$(".brief-toggle",e);
+  $(".b-mem",toggleBar).onclick=evt=>{
+    evt.stopPropagation();
+    st.memModes[i.id]="mem";
+    $(".b-mem",toggleBar).classList.add("active");
+    $(".b-gen",toggleBar).classList.remove("active");
+    renderBriefing(i,e);
+  };
+  $(".b-gen",toggleBar).onclick=evt=>{
+    evt.stopPropagation();
+    st.memModes[i.id]="gen";
+    $(".b-gen",toggleBar).classList.add("active");
+    $(".b-mem",toggleBar).classList.remove("active");
+    renderBriefing(i,e);
+  };
+
+  const a=$(".acts",e);
+  CMDS.forEach(c=>{
+    const b=document.createElement("button");b.className="btn sm";b.textContent=c.label;b.title=DESC[c.k];
+    b.onclick=()=>ask(i,c);a.append(b);
+  });
+  return e;
+}
+
+function renderBriefing(i,el){
+  const mode=st.memModes[i.id]||"mem";
+  const bc=$("#bc-"+i.id,el);
+  if(!bc)return;
+
+  const data = (mode==="mem") ? (i.briefing||{}) : (i.generic_briefing||{});
+  const isMem = (mode==="mem");
+
+  let html=`
+    <p style="margin:4px 0"><b>Probable Root Cause:</b> ${esc(data.likely_cause || i.cause)}</p>
+    <div class="fix-box">
+      <b>${isMem ? "Recommended Mitigation (Memory Proven)" : "Generic Textbook Advice"}</b>
+      ${esc(data.recommended_fix || "Inspect logs and pod health.")}
+      ${data.command ? `<code>$ ${esc(data.command)}</code>` : ""}
+    </div>
+  `;
+
+  if(isMem && data.failed_fixes && data.failed_fixes.length>5){
+    html+=`
+      <div class="warn-failed">
+        <b>🚨 CRITICAL: PREVIOUSLY FAILED FIX (DO NOT ATTEMPT)</b>
+        ${esc(data.failed_fixes)}
+      </div>
+    `;
+  }
+
+  if(isMem && data.resolver && data.resolver!=="Unknown"){
+    html+=`<div style="font-size:12px;color:var(--mu);margin-top:6px"><b>Historical Resolver:</b> ${esc(data.resolver)}</div>`;
+  }
+
+  // Recalled memories inspector
+  if(isMem && i.recalled_items && i.recalled_items.length>0){
+    html+=`
+      <div class="mem-view">
+        <span style="font-size:12px;font-weight:600;color:var(--mu)">Recalled from Hindsight Bank:</span><br>
+        ${i.recalled_items.slice(0,3).map(m=>`<span class="mem-pill" title="${esc(m.text)}">Ref: ${esc(m.id.slice(0,8))} (${esc(m.type||'past-incident')})</span>`).join("")}
+      </div>
+    `;
+  }
+
+  bc.innerHTML=html;
+}
+
+async function fetchIncidentDetail(i){
+  try{
+    const res=await fetch(`/api/incidents/${i.id}`);
+    if(res.ok){
+      const detailed=await res.json();
+      Object.assign(i,detailed);
+      const el=elOf(i);
+      if(el)renderBriefing(i,el);
+    }
+  }catch(err){console.error("fetch incident detail:",err)}
+}
+
+function upd(i,e,bump){
+  e.dataset.sev=i.sev;
+  $(".bd",e).textContent=SEVN[i.sev];
+  $(".it b",e).textContent=i.title;
+  $(".id",e).textContent=i.id;
+  $(".sv",e).textContent=i.svc;
+  $(".ag",e).textContent=ago(i.t);
+  const dd=$(".dd",e);
+  if(i.duplicate_count>0){
+    dd.innerHTML=`<span class="dedup-badge">${i.duplicate_count+1} merged</span>`;
+  }else{dd.innerHTML="";}
+  
+  $(".tl",e).innerHTML=(i.ev||[]).slice().reverse().map(([t,x])=>`<li><time>${fmt(t)}</time>${esc(x)}</li>`).join("");
+  renderBriefing(i,e);
+  if(bump){e.classList.remove("bump");void e.offsetWidth;e.classList.add("bump")}
+}
+
+const elOf=i=>$(`[data-id="${i.id}"]`);
+
+function sync(){
+  const L=$("#incList"),vis=incs.filter(i=>(!st.sel||i.svc===st.sel)&&i.status!=="resolved").sort((a,b)=>b.t-a.t);
+  const have=new Map([...L.children].filter(e=>!e.classList.contains("gone")).map(e=>[e.dataset.id,e]));
+  have.forEach((e,id)=>{if(!vis.some(i=>i.id===id)){e.classList.add("gone");setTimeout(()=>e.remove(),320)}});
+  vis.forEach((i,k)=>{
+    let e=have.get(i.id);
+    if(!e){e=elInc(i);upd(i,e)}else{upd(i,e,false)}
+    const cur=[...L.children].filter(x=>!x.classList.contains("gone"));
+    if(cur[k]!==e)L.insertBefore(e,cur[k]||null);
+  });
+  $("#cInc").textContent=vis.length?`${vis.length} open`:"";
+  const em=$("#incEmpty");em.hidden=vis.length>0;
+  em.innerHTML=st.sel?`<b>No open incidents for ${esc(st.sel)}</b><p>This service looks healthy right now.</p><button class="btn sm" id="eClr">Show all services</button>`:`<b>All clear</b><p>No active incidents in queue. Click demo buttons above to trigger scenarios.</p>`;
+  $("#eClr")&&($("#eClr").onclick=()=>select(null));
+  const f=$("#fClr");f.hidden=!st.sel;f.textContent=st.sel?"Filter: "+st.sel+" ×":"";
+}
+
+function reveal(i){
+  select(null);const e=elOf(i);if(!e)return;
+  e.classList.add("open");$(".ih",e).setAttribute("aria-expanded","true");
+  fetchIncidentDetail(i);
+  e.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+/* commands and resolution */
+let cur=null;const dlg=$("#dlg"),resDlg=$("#resDlg");
+
+function ask(i,c){
+  cur={i,c};
+  if(c.k==="resolve"){
+    $("#resNotes").value=`Resolved ${i.id} on ${i.svc}. Mitigation verified.`;
+    $("#resWorked").checked=true;
+    resDlg.showModal();
+    return;
+  }
+  $("#dT").textContent=c.label+" on "+i.svc;
+  $("#dD").textContent=DESC[c.k];
+  $("#dC").textContent="$ "+c.cmd(i.svc);
+  $("#dTargetSvc").textContent=i.svc;
+  $("#dW").hidden=$("#dTy").hidden=!c.risk;
+  $("#dIn").value="";
+  $("#dGo").disabled=!!c.risk;
+  dlg.showModal();
+  c.risk&&$("#dIn").focus();
+}
+
+$("#dIn").oninput=e=>$("#dGo").disabled=e.target.value.trim().toLowerCase()!==cur.i.svc.toLowerCase();
+$("#dNo").onclick=()=>dlg.close();
+
+$("#dGo").onclick=async()=>{
+  const{i,c}=cur,b=$("#dGo");
+  b.disabled=true;b.textContent="Running…";
+  
+  try{
+    const res=await fetch(`/api/incidents/${i.id}/command`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        command_key: c.k,
+        command_str: c.cmd(i.svc),
+        service_confirm: cur.i.svc
+      })
+    });
+    const result=await res.json();
+    dlg.close();
+    b.textContent="Run command";
+
+    if(result.catastrophic){
+      toast("🚨 DISASTER: Command Failed!",result.message,1);
+    }else if(result.success){
+      toast("Mitigation applied",result.message,i.sev);
+    }
+  }catch(err){
+    console.error(err);
+    dlg.close();
+    b.textContent="Run command";
+  }
+};
+
+$("#resNo").onclick=()=>resDlg.close();
+$("#resGo").onclick=async()=>{
+  const{i}=cur;
+  const notes=$("#resNotes").value;
+  const worked=$("#resWorked").checked;
+  resDlg.close();
+
+  try{
+    const res=await fetch(`/api/incidents/${i.id}/resolve`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({notes,worked,resolver:"Sarah Chen (Staff SRE)"})
+    });
+    const r=await res.json();
+    toast("Incident Resolved & Retained",`Feedback saved to Hindsight memory bank: ${worked?"Worked":"Did not work"}`,0);
+    i.status="resolved";
+    sync();renderK();
+  }catch(err){console.error("Resolve error:",err)}
+};
+
+/* graph */
+const svg=$("#kg"),NS="http://www.w3.org/2000/svg",mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.append(e);return e};
+const lines=E.map(()=>mk("line",{class:"edge"},svg)),nodes={};
+for(const k in N){const g=mk("g",{class:"node",tabindex:0,role:"button","aria-label":k,"data-k":k},svg);mk("circle",{r:21},g);mk("text",{y:5,class:"n"},g);mk("text",{y:39},g).textContent=k;nodes[k]=g}
+
+function place(){
+  lines.forEach((l,i)=>{const[a,b]=E[i];l.setAttribute("x1",N[a][0]);l.setAttribute("y1",N[a][1]);l.setAttribute("x2",N[b][0]);l.setAttribute("y2",N[b][1])});
+  for(const k in nodes)nodes[k].setAttribute("transform",`translate(${N[k][0]} ${N[k][1]})`);
+}
+
+function health(){
+  for(const k in nodes){
+    const l=incs.filter(i=>i.svc===k&&i.status!=="resolved");
+    nodes[k].dataset.sev=l.length?Math.min(...l.map(i=>i.sev)):0;
+    $(".n",nodes[k]).textContent=l.length||"";
+  }
+}
+
+function paintSel(){
+  const s=st.sel,nb=new Set(E.filter(([a,b])=>a===s||b===s).flat());
+  for(const k in nodes){nodes[k].classList.toggle("sel",k===s);nodes[k].classList.toggle("dim",!!s&&!nb.has(k))}
+  lines.forEach((l,i)=>{const hi=s&&E[i].includes(s);l.classList.toggle("hi",!!hi);l.classList.toggle("dim",!!s&&!hi)});
+  const n=s?incs.filter(i=>i.svc===s&&i.status!=="resolved").length:0;nb.delete(s);
+  $("#kgInfo").innerHTML=s?`<b>${esc(s)}</b> has ${n} active incident${n===1?"":"s"}. Connected to ${[...nb].map(esc).join(", ")}.`:"Select a service to filter incidents. Drag a node to rearrange topology.";
+}
+
+function select(k){st.sel=st.sel===k?null:k;paintSel();sync()}
+
+let drag=null;
+svg.addEventListener("pointerdown",e=>{const g=e.target.closest(".node");if(!g)return;drag={k:g.dataset.k,x:e.clientX,y:e.clientY,m:false};g.setPointerCapture(e.pointerId)});
+svg.addEventListener("pointermove",e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>5)drag.m=true;if(!drag.m)return;const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());N[drag.k]=[clamp(q.x,26,574),clamp(q.y,26,300)];place()});
+svg.addEventListener("pointerup",()=>{if(drag&&!drag.m)select(drag.k);drag=null});
+$("#gRst").onclick=()=>{N=JSON.parse(JSON.stringify(N0));place()};
+$("#fClr").onclick=()=>select(null);
+
+/* logs */
+let logs=[];
+function hl(s){if(!st.q)return esc(s);const re=new RegExp(st.q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi");let o="",last=0;s.replace(re,(m,i)=>{o+=esc(s.slice(last,i))+"<mark>"+esc(m)+"</mark>";last=i+m.length;return m});return o+esc(s.slice(last))}
+function renderLogs(){
+  const q=st.q.toLowerCase(),all=logs.filter(x=>(st.lv==="ALL"||x.l===st.lv)&&(!q||(x.s+" "+x.m).toLowerCase().includes(q))),v=all.slice(0,80);
+  $("#logs").innerHTML=v.map(x=>`<div class="ln" data-l="${x.l}"><time>${fmt(x.t)}</time><span class="lv">${x.l}</span><span class="sv">${hl(x.s)}</span><span class="ms">${hl(x.m)}</span></div>`).join("");
+  $("#logs").hidden=!v.length;$("#logEmpty").hidden=v.length>0;$("#lCnt").textContent=`${all.length} lines`;
+}
+$("#q").oninput=e=>{st.q=e.target.value.trim();renderLogs()};
+$("#lClr").onclick=()=>{$("#q").value="";st.q="";document.querySelector('#chips [data-l="ALL"]').click()};
+$("#bPause").onclick=e=>{st.paused=!st.paused;e.target.setAttribute("aria-pressed",st.paused);e.target.textContent=st.paused?"Resume":"Pause"};
+
+/* simulate demo buttons */
+async function triggerScenario(num){
+  try{
+    const res=await fetch("/api/incidents/simulate",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({scenario_num: num})
+    });
+    const data=await res.json();
+    const inc=data.incident;
+    if(data.merged){
+      toast("Alert Merged",`Duplicate alert merged for ${inc.id} on ${inc.svc}`,inc.sev,()=>reveal(inc));
+    }else{
+      toast(`Demo ${num} Triggered`,inc.title,inc.sev,()=>reveal(inc));
+    }
+    // Update local incs list
+    const idx=incs.findIndex(x=>x.id===inc.id);
+    if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
+    sync();health();renderK();
+    reveal(inc);
+  }catch(err){console.error("simulate error:",err)}
+}
+
+$("#bDemo1").onclick=()=>triggerScenario(1);
+$("#bDemo5").onclick=()=>triggerScenario(5);
+$("#bDemo20").onclick=()=>triggerScenario(20);
+
+$("#bInc").onclick=async()=>{
+  try{
+    const res=await fetch("/api/incidents/simulate",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({})
+    });
+    const d=await res.json();
+    incs.unshift(d.incident);
+    sync();health();renderK();toast("New Incident Alert",d.incident.title,d.incident.sev,()=>reveal(d.incident));
+  }catch(e){console.error(e)}
+};
+
+$("#bOut").onclick=()=>{
+  st.err=true;
+  $("#live").classList.add("off");
+  $("#live span").textContent="Offline";
+  toast("Major Outage Alert","All edge gateways reporting 503 cascades",1);
+};
+
+$("#bClr").onclick=()=>{
+  incs.forEach(i=>i.status="resolved");
+  sync();health();renderK();toast("Queue Cleared","All active incidents marked resolved",0);
+};
+
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+  if(!b.dataset.t)return;
+  document.documentElement.dataset.theme=b.dataset.t;
+  document.querySelectorAll(".seg button").forEach(x=>{if(x.dataset.t)x.setAttribute("aria-pressed",x===b)});
+});
+
+/* SSE CONNECTION TO BACKEND */
+function connectSSE(){
+  const es=new EventSource("/api/events");
+  es.onmessage=evt=>{
+    try{
+      const data=JSON.parse(evt.data);
+      if(data.metrics){
+        M.rps=data.metrics.rps;M.p95=data.metrics.p95;M.err=data.metrics.err;
+        if(data.metrics.history)Object.assign(H,data.metrics.history);
+        renderK();
+      }
+      if(data.logs&&data.logs.length){
+        data.logs.forEach(l=>{if(!logs.some(existing=>existing.t===l.t&&existing.m===l.m))logs.unshift(l)});
+        if(logs.length>300)logs.length=300;
+        renderLogs();
+      }
+      if(data.incidents){
+        data.incidents.forEach(inc=>{
+          const idx=incs.findIndex(i=>i.id===inc.id);
+          if(idx>=0){
+            Object.assign(incs[idx],inc);
+          }else{
+            incs.unshift(inc);
+            toast("New Incident Detected",inc.title,inc.sev,()=>reveal(inc));
+          }
+        });
+        sync();health();
+      }
+      // Hindsight banner status
+      const b=$("#hsBanner");
+      if(data.hindsight){
+        b.style.display="flex";
+        if(data.hindsight.is_healthy){
+          b.className="banner-offline ok";
+          $("#hsStatus").textContent="Connected (acme-sre)";
+        }else{
+          b.className="banner-offline";
+          $("#hsStatus").textContent="Offline ("+(data.hindsight.last_error||"Unreachable")+") - Running in zero-memory fallback mode";
+        }
+      }
+    }catch(e){console.error("SSE parse error:",e)}
+  };
+  es.onerror=()=>{
+    $("#live").classList.add("off");
+    $("#live span").textContent="Reconnecting...";
+  };
+  es.onopen=()=>{
+    $("#live").classList.remove("off");
+    $("#live span").textContent="Live";
+  };
+}
+
+/* boot */
+document.querySelectorAll(".legend").forEach(l=>l.innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"],[0,"Healthy"]].map(([s,n])=>`<span data-sev="${s}"><i></i>${n}</span>`).join(""));
+place();health();paintSel();
+{const t="geordie";document.documentElement.dataset.theme=t;document.querySelectorAll(".seg button").forEach(x=>{if(x.dataset.t)x.setAttribute("aria-pressed",x.dataset.t===t)})}
+
+// Initial incidents fetch
+fetch("/api/incidents").then(r=>r.json()).then(data=>{
+  incs=data;
+  sync();health();renderK();
+  document.body.classList.remove("loading");
+}).catch(()=>{
+  document.body.classList.remove("loading");
+});
+
+connectSSE();
+</script></body></html>
