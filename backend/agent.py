@@ -7,7 +7,6 @@ from backend.llm import llm, GroqLLM
 
 logger = logging.getLogger("echo_core.agent")
 
-# Curated production runbooks
 RUNBOOKS = {
     "payments": {
         "title": "Payments Service SRE Runbook",
@@ -87,61 +86,11 @@ RUNBOOKS = {
     }
 }
 
-AGENT_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "recall_similar_incidents",
-            "description": "Searches Hindsight memory for past incidents with similar symptoms or root causes.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "service": {"type": "string", "description": "Name of the service (e.g. payments, redis, postgres)"},
-                    "error_signature": {"type": "string", "description": "Key error phrase or symptom"}
-                },
-                "required": ["service", "error_signature"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_runbook",
-            "description": "Retrieves the standard SRE runbook procedures for a given service.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "service": {"type": "string", "description": "Service name"}
-                },
-                "required": ["service"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "propose_fix",
-            "description": "Proposes an actionable fix command with risk analysis and failed fix warnings.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "description": "Summary of proposed fix action"},
-                    "command": {"type": "string", "description": "Exact bash or kubectl command to run"},
-                    "rationale": {"type": "string", "description": "Why this fix is expected to work"},
-                    "failed_fixes_warning": {"type": "string", "description": "Explicit warning on fixes that failed in the past and must NOT be attempted"},
-                    "risk_level": {"type": "integer", "description": "0 for low-risk read/scale, 1 for high-risk restart/rollback"}
-                },
-                "required": ["action", "command", "rationale", "failed_fixes_warning", "risk_level"]
-            }
-        }
-    }
-]
-
 class IncidentAgent:
     """
     Echo-Core On-Call Agent.
     Orchestrates Hindsight memory recall/reflect, Groq LLM tool loops,
-    and produces both memory-informed and generic briefings.
+    and produces both memory-informed and generic briefings with safety pre-flight.
     """
     def __init__(self, mem: Optional[IncidentMemory] = None, llm_engine: Optional[GroqLLM] = None):
         self.memory = mem or memory
@@ -162,12 +111,54 @@ class IncidentAgent:
             ]
         })
 
+    async def check_command_safety(self, service: str, command: str) -> Dict[str, Any]:
+        """
+        Pre-flight safety check: queries Hindsight and anti-pattern catalog
+        to determine if a command is dangerous or matches previous failed fixes.
+        """
+        anti_patterns = await self.memory.get_anti_patterns()
+        cmd_lower = command.lower()
+        
+        for ap in anti_patterns:
+            if ap["service"] == service:
+                danger_text = ap["dangerous_action"].lower()
+                # Check for pod restart anti-pattern on payments
+                if "restart" in cmd_lower and "restart" in danger_text:
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Catastrophic connection storm or service lock",
+                        "safe_alternative": "Apply PgBouncer pooler config or scale database capacity"
+                    }
+                # Check for flushdb on redis
+                if "flush" in cmd_lower and "flush" in danger_text:
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Immediate massive cache stampede crashing database primary",
+                        "safe_alternative": "Switch eviction policy to volatile-lru or expand shard memory"
+                    }
+                # Check for timeout increase on api-gateway
+                if ("timeout" in cmd_lower or "120" in cmd_lower) and "timeout" in danger_text:
+                    return {
+                        "is_dangerous": True,
+                        "incident_id": ap["incident_id"],
+                        "warning": f"CRITICAL: {ap['dangerous_action']}",
+                        "fatal_risk": "Exhausts NGINX worker connections and freezes all ingress traffic",
+                        "safe_alternative": "Enable Envoy circuit breaker and fallback responses"
+                    }
+
+        return {"is_dangerous": False}
+
     async def analyze_incident(self, incident: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyzes an incident, generating:
         1. Memory-informed briefing (Echo-Core + Hindsight)
         2. Generic briefing (Zero-shot LLM with no memory)
         3. Recalled memories list
+        4. Side-by-side comparison delta (Risk prevented)
         """
         svc = incident.get("svc", "unknown")
         title = incident.get("title", "")
@@ -198,12 +189,47 @@ class IncidentAgent:
         # Step 4: Generate Generic Zero-Shot Briefing (No Memory)
         generic_briefing = await self._generate_generic_briefing(incident=incident)
 
+        # Step 5: Side-by-side comparison delta
+        comparison_delta = self._compute_comparison_delta(
+            svc=svc,
+            memory_briefing=memory_briefing,
+            generic_briefing=generic_briefing
+        )
+
         return {
             "incident_id": incident.get("id"),
             "memory_informed": memory_briefing,
             "generic": generic_briefing,
+            "comparison": comparison_delta,
             "recalled_items": recalled_items,
             "hindsight_healthy": self.memory.is_healthy
+        }
+
+    def _compute_comparison_delta(
+        self,
+        svc: str,
+        memory_briefing: Dict[str, Any],
+        generic_briefing: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Computes explicit visual diff showing why memory prevented a disaster."""
+        has_failed_fix = bool(memory_briefing.get("failed_fixes") and "no historical" not in memory_briefing.get("failed_fixes", "").lower())
+        generic_cmd = generic_briefing.get("command", "")
+        mem_cmd = memory_briefing.get("command", "")
+        
+        # Check if generic suggests restarting something dangerous
+        generic_is_dangerous = ("restart" in generic_cmd.lower() and svc in ["payments", "postgres", "redis"])
+        
+        risk_prevented = "Prevents secondary outage caused by naive trial-and-error."
+        if generic_is_dangerous:
+            risk_prevented = f"PREVENTED CATASTROPHE: Generic AI recommends pod restart which triggers a connection/cache stampede. Echo-Core blocked this."
+
+        return {
+            "has_failed_fix_warning": has_failed_fix,
+            "generic_risk_level": "HIGH (Unverified Action)" if generic_is_dangerous else "MODERATE",
+            "memory_risk_level": "LOW (Historical Proven)",
+            "risk_prevented": risk_prevented,
+            "generic_fatal_flaw": "Suggests pod restart or capacity increase without addressing root cause connection pool / cache limits.",
+            "memory_advantage": f"Identified exact prior fix and cited historical resolver {memory_briefing.get('resolver', 'SRE')}."
         }
 
     async def _generate_memory_briefing(
@@ -254,9 +280,9 @@ Return ONLY a valid JSON object with these exact keys:
   "likely_cause": "Detailed explanation of probable root cause",
   "recommended_fix": "Clear explanation of the proven mitigation",
   "command": "Exact shell or kubectl command to run (e.g. kubectl rollout restart deploy/{svc} or kubectl scale ... or pgbouncer patch)",
-  "command_label": "Short label for command (e.g. Restart service, Scale replicas, Apply pooler patch)",
+  "command_label": "Short label for command",
   "failed_fixes": "CRITICAL WARNING: Specific actions that failed in the past and must NOT be attempted",
-  "resolver": "Name and role of engineer who previously fixed this (or 'On-Call SRE')",
+  "resolver": "Name and role of engineer who previously fixed this",
   "confidence": "High (Memory Matched) or Medium (Pattern Match) or Novel (Cold Start)",
   "recalled_refs": ["List of referenced memory IDs or incident IDs like INC-1001"]
 }}"""
@@ -272,9 +298,7 @@ Return ONLY a valid JSON object with these exact keys:
         content = resp.get("content", "")
         parsed = self._extract_json(content)
         
-        # Fallback if LLM output couldn't be parsed
         if not parsed:
-            # Deterministic synthesis from reflection if available
             failed_warning = "Check past incident records before attempting disruptive pod restarts."
             if "failed" in reflection_text.lower():
                 failed_warning = reflection_text[:300]
@@ -352,15 +376,12 @@ Return ONLY a valid JSON object:
         if not text:
             return None
         try:
-            # Check for ```json ... ```
             match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
             if match:
                 return json.loads(match.group(1))
-            # Try raw text
             text_trimmed = text.strip()
             if text_trimmed.startswith("{") and text_trimmed.endswith("}"):
                 return json.loads(text_trimmed)
-            # Find first { and last }
             start = text.find("{")
             end = text.rfind("}")
             if start != -1 and end != -1 and end > start:

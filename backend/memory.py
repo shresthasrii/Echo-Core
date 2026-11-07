@@ -1,6 +1,8 @@
 import logging
 import asyncio
+import json
 from typing import Dict, Any, List, Optional
+from pathlib import Path
 from hindsight_client import Hindsight
 from hindsight_client_api.exceptions import ApiException
 from backend.config import settings
@@ -10,7 +12,8 @@ logger = logging.getLogger("echo_core.memory")
 class IncidentMemory:
     """
     Thin wrapper over Hindsight client managing team memory banks (e.g. 'acme-sre').
-    Implements retain_incident(), recall_for_alert(), and reflect_briefing().
+    Implements retain_incident(), recall_for_alert(), reflect_briefing(),
+    search_memories(), and get_anti_patterns().
     Handles network errors, bank initialization, and offline fallbacks.
     """
     def __init__(
@@ -26,6 +29,7 @@ class IncidentMemory:
         self.is_healthy: bool = False
         self.last_error: Optional[str] = None
         self.client: Optional[Hindsight] = None
+        self.cached_anti_patterns: List[Dict[str, Any]] = []
         
         self._init_client()
 
@@ -57,7 +61,6 @@ class IncidentMemory:
             return False
 
         try:
-            # Try to create or verify bank
             await self.client.acreate_bank(
                 bank_id=target_bank,
                 name=f"{target_bank} On-Call Memory Bank",
@@ -68,7 +71,6 @@ class IncidentMemory:
             logger.info(f"Verified Hindsight bank: {target_bank}")
             return True
         except ApiException as e:
-            # 409 means bank already exists, which is healthy
             if e.status == 409:
                 self.is_healthy = True
                 self.last_error = None
@@ -97,7 +99,6 @@ class IncidentMemory:
         if not self.client:
             return {"success": False, "error": "Hindsight client unavailable"}
 
-        # Construct structured incident text for extraction
         svc = incident.get("svc", "unknown")
         inc_id = incident.get("id", "INC-UNKNOWN")
         title = incident.get("title", "")
@@ -241,14 +242,70 @@ class IncidentMemory:
                 "text": f"Memory reflection unavailable ({e}). Fallback to generic diagnostics."
             }
 
+    async def search_memories(self, query: str, bank_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Direct memory search tool for the UI Memory Explorer.
+        """
+        target_bank = bank_id or self.bank_id
+        if not self.client:
+            return []
+        try:
+            resp = await self.client.arecall(bank_id=target_bank, query=query, budget="high")
+            self.is_healthy = True
+            items = []
+            for r in getattr(resp, "results", []):
+                items.append({
+                    "id": getattr(r, "id", ""),
+                    "text": getattr(r, "text", ""),
+                    "type": getattr(r, "type", ""),
+                    "tags": getattr(r, "tags", []),
+                    "entities": getattr(r, "entities", []),
+                    "scores": getattr(r, "scores", {})
+                })
+            return items
+        except Exception as e:
+            logger.error(f"Search memory failed for query '{query}': {e}")
+            return []
+
+    async def get_anti_patterns(self) -> List[Dict[str, Any]]:
+        """
+        Returns catalog of known infrastructure anti-patterns and dangerous failed fixes.
+        Combines Hindsight memory knowledge with seed dataset records.
+        """
+        if self.cached_anti_patterns:
+            return self.cached_anti_patterns
+
+        anti_patterns = []
+        if settings.SEED_DATA_PATH.exists():
+            with open(settings.SEED_DATA_PATH, "r", encoding="utf-8") as f:
+                incidents = json.load(f)
+                for inc in incidents:
+                    ff = inc.get("fixes_failed", [])
+                    if ff:
+                        if isinstance(ff, str):
+                            ff = [ff]
+                        for fix in ff:
+                            anti_patterns.append({
+                                "incident_id": inc.get("id"),
+                                "service": inc.get("svc"),
+                                "title": inc.get("title"),
+                                "dangerous_action": fix,
+                                "pattern": inc.get("pattern", "general-anti-pattern"),
+                                "resolver": inc.get("resolver", "On-Call SRE")
+                            })
+        self.cached_anti_patterns = anti_patterns
+        return anti_patterns
+
     async def get_stats(self, bank_id: Optional[str] = None) -> Dict[str, Any]:
         """Returns memory bank statistics and connection health."""
         target_bank = bank_id or self.bank_id
+        anti_pats = await self.get_anti_patterns()
         return {
             "bank_id": target_bank,
             "base_url": self.base_url,
             "is_healthy": self.is_healthy,
-            "last_error": self.last_error
+            "last_error": self.last_error,
+            "documented_anti_patterns": len(anti_pats)
         }
 
 # Global singleton memory instance

@@ -35,10 +35,6 @@ LOG_TEMPLATES = {
     ]
 }
 
-# Curated demo scenarios for the prompt's mandatory walkthrough:
-# incident 1 = generic advice (cold start / novel)
-# incident 5 = recalls a similar past incident (pattern match)
-# incident 20 = knows team patterns and warns about a previously failed fix (star feature)
 DEMO_SCENARIOS = {
     1: {
         "svc": "ml-ranker",
@@ -72,7 +68,7 @@ DEMO_SCENARIOS = {
 class TelemetrySimulator:
     """
     Simulates real-time system metrics (RPS, p95 latency, error rate),
-    live incident state machine, and log generation.
+    live incident state machine, multi-service cascading failures, and log generation.
     """
     def __init__(self):
         self.rps: float = 4200.0
@@ -86,15 +82,12 @@ class TelemetrySimulator:
         self.seq: int = 2040
         self.is_paused: bool = False
         
-        # Initialize telemetry history
         for _ in range(30):
             self.tick_metrics()
             
-        # Seed initial demo incidents
         self._init_default_incidents()
 
     def _init_default_incidents(self):
-        """Initial baseline incidents on boot."""
         t_now = int(time.time() * 1000)
         init_cases = [
             ("payments", 2, "Elevated 5xx rate on checkout API", "Upstream timeouts began after the latest deploy; client retries are amplifying load.", t_now - 250000),
@@ -117,30 +110,26 @@ class TelemetrySimulator:
             }
 
     def tick_metrics(self):
-        """Ticks telemetry forward based on active incident severity."""
         if self.is_paused:
             return
             
         load = sum(5 - inc["sev"] for inc in self.incidents.values() if inc.get("status") == "active")
         
-        # Calculate next values
         self.rps = max(2400.0, min(6500.0, self.rps + random.uniform(-90, 90) - (load * 6)))
         self.p95 = max(90.0, self.p95 + (135.0 + load * 18 - self.p95) * 0.12 + random.uniform(-6, 6))
         self.err = max(0.05, min(15.0, self.err + (0.2 + load * 0.25 - self.err) * 0.15 + random.uniform(-0.03, 0.03)))
         
-        # Append history (keep last 32)
         self.history["rps"].append(round(self.rps, 1))
         self.history["p95"].append(round(self.p95, 1))
         self.history["err"].append(round(self.err, 2))
-        self.history["inc"].append(len(self.incidents))
+        self.history["inc"].append(len([i for i in self.incidents.values() if i.get("status") == "active"]))
         
         for k in self.history:
             if len(self.history[k]) > 32:
                 self.history[k].pop(0)
 
     def generate_log(self) -> Dict[str, Any]:
-        """Generates a realistic log message."""
-        active_svcs = [i["svc"] for i in self.incidents.values()]
+        active_svcs = [i["svc"] for i in self.incidents.values() if i.get("status") == "active"]
         hot = active_svcs and random.random() < 0.45
         svc = random.choice(active_svcs) if hot else random.choice(SERVICES)
         
@@ -171,10 +160,6 @@ class TelemetrySimulator:
         error_log: Optional[str] = None,
         scenario_num: Optional[int] = None
     ) -> Dict[str, Any]:
-        """
-        Creates an incident or merges if an alert with identical service & title already exists.
-        Supports triggering Demo Scenarios 1, 5, or 20 directly.
-        """
         if scenario_num in DEMO_SCENARIOS:
             sc = DEMO_SCENARIOS[scenario_num]
             svc = sc["svc"]
@@ -189,11 +174,11 @@ class TelemetrySimulator:
         cause = cause or f"Upstream dependency degradation observed on {svc}."
         t_now = int(time.time() * 1000)
 
-        # Edge case: Deduplicate / merge duplicate alerts on same service
+        # Merge duplicate alerts on same service
         for existing in self.incidents.values():
             if existing["svc"] == svc and existing["title"] == title and existing.get("status") == "active":
                 existing["duplicate_count"] += 1
-                existing["sev"] = min(existing["sev"], sev)  # Escalate if incoming is higher severity
+                existing["sev"] = min(existing["sev"], sev)
                 existing["ev"].append([t_now, f"Merged duplicate alert (occurrences: {existing['duplicate_count'] + 1})"])
                 logger.info(f"Merged duplicate alert for {existing['id']} on {svc}")
                 return {
@@ -222,11 +207,43 @@ class TelemetrySimulator:
             "merged": False
         }
 
+    def trigger_cascade(self) -> List[Dict[str, Any]]:
+        """
+        Triggers multi-service cascading outage across dependency topology:
+        payments -> postgres -> orders -> api-gateway.
+        """
+        t_now = int(time.time() * 1000)
+        cascade_chain = [
+            ("payments", 1, "Payments DB Connection Pool Exhaustion (Cascade Root)", "HikariCP pool starvation following Friday deploy v2.4.1. Exhausting database connection limit.", "FATAL: remaining connection slots are reserved for non-replication superuser connections (active: 100/100)"),
+            ("postgres", 2, "Database shared transaction lock lockup", "Downstream locks queuing behind uncommitted payments checkout transaction.", "WARNING: 42 transactions waiting for ExclusiveLock on orders table"),
+            ("orders", 2, "Order placement timeouts cascading to upstream", "Checkout RPCs to payments service timed out after 5000ms.", "java.net.SocketTimeoutException: Read timed out to payments.prod:8443"),
+            ("api-gateway", 1, "504 Gateway Timeout storm on checkout ingress", "Edge worker threads saturated waiting for order completion.", "upstream timed out (110: Connection timed out) while reading response header")
+        ]
+        created = []
+        for svc, sev, title, cause, error_log in cascade_chain:
+            self.seq += 1
+            inc_id = f"INC-{self.seq}"
+            inc = {
+                "id": inc_id,
+                "svc": svc,
+                "sev": sev,
+                "title": title,
+                "cause": cause,
+                "error_log": error_log,
+                "t": t_now,
+                "ev": [[t_now, f"Cascading alert raised: Severity {sev}"]],
+                "duplicate_count": 0,
+                "status": "active",
+                "is_cascade": True
+            }
+            self.incidents[inc_id] = inc
+            created.append(inc)
+            
+        self.p95 = 520.0
+        self.err = 6.4
+        return created
+
     def execute_command(self, inc_id: str, cmd_key: str, custom_cmd: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Executes mitigation command against an incident.
-        Models success vs catastrophic failed command execution.
-        """
         inc = self.incidents.get(inc_id)
         if not inc:
             return {"success": False, "error": f"Incident {inc_id} not found"}
@@ -234,19 +251,29 @@ class TelemetrySimulator:
         t_now = int(time.time() * 1000)
         svc = inc["svc"]
         
-        # Check if the command was a known disastrous failed fix!
-        # E.g. restarting payments pod during DB pool exhaustion
+        # Check known disastrous anti-patterns
         if svc == "payments" and "restart" in cmd_key.lower():
-            # Catastrophic failure simulation
             inc["sev"] = 1
             inc["ev"].append([t_now, "FATAL: 'kubectl rollout restart' triggered connection storm on Postgres! Severity locked to CRITICAL."])
-            self.err += 3.5
-            self.p95 += 220.0
+            self.err += 4.5
+            self.p95 += 350.0
             return {
                 "success": False,
                 "incident": inc,
                 "catastrophic": True,
                 "message": "DISASTROUS COMMAND: Pod restart caused immediate connection stampede on Postgres! Memory warned against this."
+            }
+
+        if svc == "redis" and "flush" in (custom_cmd or cmd_key).lower():
+            inc["sev"] = 1
+            inc["ev"].append([t_now, "FATAL: Cache flush triggered massive database stampede! CPU saturated at 100%."])
+            self.err += 7.0
+            self.p95 += 400.0
+            return {
+                "success": False,
+                "incident": inc,
+                "catastrophic": True,
+                "message": "DISASTROUS COMMAND: Flushing Redis cache triggered complete cache stampede on Postgres!"
             }
             
         if cmd_key == "resolve":
@@ -259,7 +286,6 @@ class TelemetrySimulator:
                 "message": f"Incident {inc_id} resolved."
             }
 
-        # Otherwise successful mitigation: ease severity or resolve
         if inc["sev"] < 4:
             inc["sev"] += 1
             inc["ev"].append([t_now, f"Mitigation command '{cmd_key}' applied successfully. Severity eased to {inc['sev']}."])

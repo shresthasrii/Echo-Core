@@ -31,6 +31,7 @@ h1{font:700 20px/1.1 var(--fh);margin:0;letter-spacing:-.01em}
 .btn:hover{border-color:var(--ac)}.btn.sm{padding:5px 10px;font-size:13px}
 .btn.pri{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weight:600}
 .btn.demo{background:linear-gradient(135deg,var(--ac),var(--g2));color:#000;border:0;font-weight:700}
+.btn.accent{background:color-mix(in srgb,var(--ac) 20%,transparent);border-color:var(--ac);color:var(--ac);font-weight:600}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 main{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;padding:0 20px 28px}
 .kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -86,24 +87,24 @@ mark{background:var(--ac);color:var(--bg);border-radius:3px;padding:0 2px}
 .sk{display:block;border-radius:8px;margin-top:10px;background:linear-gradient(90deg,var(--sf2) 25%,var(--bd) 50%,var(--sf2) 75%) 0 0/200% 100%;animation:sh 1.2s linear infinite}
 .skel{display:none}.loading .skel{display:block}.loading .real{display:none}
 .loading .kpi>*{visibility:hidden}.loading .kpi::after{content:"";position:absolute;inset:12px;border-radius:8px;background:linear-gradient(90deg,var(--sf2) 25%,var(--bd) 50%,var(--sf2) 75%) 0 0/200% 100%;animation:sh 1.2s linear infinite}
-#toasts{position:fixed;right:0;bottom:0;display:grid;gap:8px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:min(400px,100%);z-index:50;pointer-events:none}
+#toasts{position:fixed;right:0;bottom:0;display:grid;gap:8px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:min(420px,100%);z-index:50;pointer-events:none}
 .toast{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--sf);border:1px solid var(--bd);border-left:5px solid var(--c);border-radius:var(--r);padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.28);animation:in .35s;transition:opacity .3s,transform .3s}
 .toast div{flex:1;display:grid;min-width:0}.toast small{color:var(--mu)}.toast.out{opacity:0;transform:translateX(30px)}
-dialog{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:var(--r);padding:20px;width:min(460px,calc(100vw - 24px))}
-dialog::backdrop{background:rgba(0,0,0,.55)}dialog h3{margin:0 0 10px;font:700 17px var(--fh)}
+dialog{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:var(--r);padding:20px;width:min(580px,calc(100vw - 24px))}
+dialog::backdrop{background:rgba(0,0,0,.65);backdrop-filter:blur(3px)}
+dialog h3{margin:0 0 10px;font:700 17px var(--fh)}
 code{display:block;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px;font-family:var(--fm);font-size:13px;overflow-wrap:anywhere;margin:10px 0}
-dialog label{display:block;margin:10px 0 4px}dialog input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font:inherit}
+dialog label{display:block;margin:10px 0 4px}
+dialog input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font:inherit}
 .dact{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.warn{color:var(--s2);margin:0}
-body{background:var(--bg)}body::before{display:none}
+body{background:var(--bg)}
 h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;font-size:22px}
-.p,.kpi{background:var(--sf);clip-path:none;border:1px solid var(--bd);border-radius:var(--r)}
+.p,.kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
 .p{padding:20px}.kpi{--k:var(--tx);padding:16px;gap:4px}
 .kpi .val{text-shadow:none;font-size:32px}.kpi .name{font-weight:600;font-size:14px;color:var(--tx)}
 .kpi .hint{color:var(--mu);font-size:12.5px}.kpi .sub{font-weight:600;color:var(--k)}.kpi[data-s=""] .sub{color:var(--ok)}
-.inc{box-shadow:none}.node circle,.node.sel circle{filter:none}.node.sel circle{stroke-width:6}
-.live,.btn:hover,.btn.pri,.seg button[aria-pressed=true]{box-shadow:none}.ln .lv{text-shadow:none}
+.live,.btn:hover,.btn.pri,.seg button[aria-pressed=true]{box-shadow:none}
 .btn.pri,.seg button[aria-pressed=true]{background:var(--ac);color:var(--bg)}
-dialog{box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #kg{background:var(--sf2);border:1px solid var(--bd)}
 .bd{min-width:74px;font-size:12.5px}[data-theme=light] .bd{color:#fff}
 .sub2{margin:2px 0 10px;color:var(--mu);font-size:13px;max-width:62ch}
@@ -112,98 +113,88 @@ dialog{box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:10px;height:10px;border-radius:50%;background:var(--c)}
 .status{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between;background:var(--sf);border:1px solid var(--bd);border-left:8px solid var(--c);border-radius:var(--r);padding:16px 20px;transition:border-color .6s}
 .status h2{font-size:20px}.status p{margin:2px 0 0;color:var(--mu);max-width:60ch}
-.logo{flex:none}
-.ph h2{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac)}
 .donut{width:88px;height:88px;flex:none}.dt,.ds{fill:none;stroke-width:9}.dt{stroke:var(--bd)}
 .ds{stroke:var(--c);stroke-dasharray:0 214;transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dasharray .7s,stroke-dashoffset .7s}
 .donut text{fill:var(--tx);font:700 24px Inter,system-ui,sans-serif;text-anchor:middle}
 .sum{display:flex;align-items:center;gap:18px}.legend.col{flex-direction:column;gap:4px;margin:0}.legend b{color:var(--tx);margin-left:6px}
-.chip{background:transparent}.chip[aria-pressed=true]{background:color-mix(in srgb,var(--ac) 18%,transparent);color:var(--tx);border-color:var(--ac)}
-.btn.pri,.seg button[aria-pressed=true]{background:var(--pri,var(--ac));color:var(--onpri,var(--bg))}
-.kpi polyline{stroke-linejoin:round;stroke-linecap:round}
-[data-theme=geordie] body{background:radial-gradient(1000px 360px at 50% -170px,rgba(168,85,247,.26),transparent),var(--bg)}
-[data-theme=geordie] .p,[data-theme=geordie] .kpi,[data-theme=geordie] .status{border-color:#26262b}
-[data-theme=geordie] [data-sev="4"] .bd{color:#fff}
-html{scroll-behavior:smooth}
-.p,.kpis,.logs,.chip,.seg button{transition:background-color .4s,border-color .4s,color .4s}
-.btn:active{transform:scale(.96)}
-.status h2{font-size:26px;font-weight:600;letter-spacing:-.02em}
-#pInc{grid-column:span 5}#pGraph{grid-column:span 7}
 .kpis{gap:0;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .kpis .kpi{background:transparent;border:0;border-right:1px solid var(--bd);border-radius:0;padding:18px 22px}
-.kpis .kpi:nth-child(4){border-right:0}.kpis .errst{margin:14px;border-color:var(--s1)}
-@media(max-width:1000px){.kpis .kpi:nth-child(2){border-right:0}.kpis .kpi:nth-child(-n+2){border-bottom:1px solid var(--bd)}}
+.kpis .kpi:nth-child(4){border-right:0}
 .kpi .val{font-weight:300;font-size:38px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .kpi svg{height:38px}.kpi .sa{fill:currentColor;opacity:.14}
-.kpi .sl{fill:none;stroke:currentColor;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.kpi .sl{fill:none;stroke:currentColor;stroke-width:2;vector-effect:non-scaling-stroke}
 #incList{padding:4px 4px 0 8px}
-.inc{background:transparent;border:0;border-left:2px solid var(--bd);border-radius:0;margin:0 0 2px 6px;padding-left:18px;position:relative;box-shadow:none}
+.inc{background:transparent;border:0;border-left:2px solid var(--bd);border-radius:0;margin:0 0 2px 6px;padding-left:18px;position:relative}
 .inc.open{border-left-color:var(--c)}
 .inc::before{content:"";position:absolute;left:-8px;top:14px;width:14px;height:14px;border-radius:50%;background:var(--c);border:3px solid var(--sf);transition:background .7s}
 .inc[data-sev="1"]::before{animation:ping 1.6s infinite}
-.inc.bump{animation:none}.inc.bump::before{animation:ping .9s 2}
 .ih{padding:10px 0}.body>div{padding:0}.open .body>div{padding-bottom:12px}
-.ih .bd{background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);min-width:0;padding:2px 9px;border-radius:99px;transition:background .7s,color .7s}
-.edge{stroke-dasharray:3 7;animation:flow 1.6s linear infinite}.edge.hi{stroke-dasharray:7 5;animation-duration:.7s}
-.node circle{transition:stroke .7s,fill .2s,r .2s}.node:hover circle{r:24}
-.logs{mask-image:linear-gradient(transparent,#000 10px,#000 calc(100% - 10px),transparent)}
-body:not(.loading) main>*{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
-main>:nth-child(2){animation-delay:.07s}main>:nth-child(3){animation-delay:.14s}main>:nth-child(4){animation-delay:.21s}main>:nth-child(5){animation-delay:.28s}
-dialog[open]{animation:pop .28s cubic-bezier(.2,.8,.2,1)}dialog[open]::backdrop{animation:fadein .28s}
-@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+.ih .bd{background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);min-width:0;padding:2px 9px;border-radius:99px}
+.edge{stroke-dasharray:3 7;animation:flow 1.6s linear infinite}
 @keyframes ping{0%{box-shadow:0 0 0 0 var(--c)}100%{box-shadow:0 0 0 12px transparent}}
 @keyframes flow{to{stroke-dashoffset:-20}}
-@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.96)}}@keyframes fadein{from{opacity:0}}
-@keyframes sh{to{background-position:-200% 0}}@keyframes in{from{opacity:0;transform:translateY(10px)}}
-@keyframes bump{0%{box-shadow:0 0 0 0 var(--c)}100%{box-shadow:0 0 0 14px transparent}}
-@keyframes ring{50%{stroke-width:7}}@keyframes blink{50%{opacity:.25}}
-@media(max-width:1000px){#pInc,#pGraph{grid-column:1/-1}.kpis{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){header{padding:12px}main{padding:0 12px 24px;gap:12px}.p{padding:12px}.kpi .val{font-size:24px}.tools{width:100%}.seg{width:100%}.seg button{flex:1;padding:9px 4px}.btn{padding:9px 12px}.logs{height:260px}}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
 
 /* ECHO-CORE CUSTOM STYLES */
 .banner-offline{background:rgba(255,107,87,0.18);border:1px solid var(--s1);border-radius:var(--r);padding:10px 16px;margin:0 20px 12px;color:var(--s1);display:flex;align-items:center;justify-content:space-between;font-weight:500}
 .banner-offline.ok{background:rgba(123,216,143,0.15);border-color:var(--ok);color:var(--ok)}
 .brief-box{background:var(--sf);border:1px solid var(--bd);border-radius:calc(var(--r) - 2px);padding:14px;margin:10px 0}
-.brief-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.brief-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
 .brief-toggle{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;font-size:12px}
 .brief-toggle button{border:0;background:var(--sf2);padding:4px 9px;color:var(--mu)}
 .brief-toggle button.active{background:var(--ac);color:var(--bg);font-weight:700}
-.warn-failed{background:rgba(255,90,95,0.15);border-left:4px solid var(--s1);border-radius:4px;padding:8px 12px;margin:8px 0;color:#ff9b9e;font-size:13px}
-.warn-failed b{color:var(--s1);display:block;margin-bottom:2px}
-.fix-box{background:rgba(123,216,143,0.1);border-left:4px solid var(--ok);border-radius:4px;padding:8px 12px;margin:8px 0;color:var(--tx);font-size:13px}
-.fix-box b{color:var(--ok);display:block;margin-bottom:2px}
+.warn-failed{background:rgba(255,90,95,0.18);border-left:4px solid var(--s1);border-radius:4px;padding:10px 12px;margin:8px 0;color:#ff9b9e;font-size:13px}
+.warn-failed b{color:var(--s1);display:block;margin-bottom:3px}
+.fix-box{background:rgba(123,216,143,0.12);border-left:4px solid var(--ok);border-radius:4px;padding:10px 12px;margin:8px 0;color:var(--tx);font-size:13px}
+.fix-box b{color:var(--ok);display:block;margin-bottom:3px}
 .mem-view{margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px}
-.mem-pill{display:inline-block;background:color-mix(in srgb,var(--ac) 14%,transparent);border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);border-radius:4px;padding:2px 6px;font-size:11px;font-family:var(--fm);color:var(--ac);margin:2px 4px 2px 0}
+.mem-pill{display:inline-block;background:color-mix(in srgb,var(--ac) 14%,transparent);border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);border-radius:4px;padding:3px 8px;font-size:11px;font-family:var(--fm);color:var(--ac);margin:2px 4px 2px 0}
 .dedup-badge{background:var(--s3);color:#000;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:6px}
+.cascade-badge{background:var(--s1);color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:6px}
+
+/* COMPARISON MODAL */
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.comp-col{border:1px solid var(--bd);border-radius:8px;padding:12px;background:var(--sf2)}
+.comp-col.mem{border-color:var(--ok);background:rgba(123,216,143,0.06)}
+.comp-col.gen{border-color:var(--s1);background:rgba(255,107,87,0.06)}
+.comp-badge{font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.comp-badge.danger{background:var(--s1);color:#fff}
+.comp-badge.safe{background:var(--ok);color:#000}
+.delta-box{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:10px;margin-top:10px;font-size:13px}
+.delta-box b{color:var(--ac)}
+.ap-item{border-bottom:1px solid var(--bd);padding:8px 0}
+.ap-item:last-child{border-bottom:0}
 </style></head>
 <body class="loading">
 <header>
-<div class="brand"><svg class="logo" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><path d="M16 2 28 9v14l-12 7L4 23V9z" fill="none" stroke="var(--ac)" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 9.5 22 13v6l-6 3.5L10 19v-6z" fill="var(--ac)"/></svg><div><h1>Echo-Core</h1><small>Incident Response Agent with Persistent Memory</small></div><span class="live" id="live"><i></i><span>Live</span></span></div>
+<div class="brand"><svg class="logo" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><path d="M16 2 28 9v14l-12 7L4 23V9z" fill="none" stroke="var(--ac)" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 9.5 22 13v6l-6 3.5L10 19v-6z" fill="var(--ac)"/></svg><div><h1>Echo-Core</h1><small>Autonomous SRE Agent with Hindsight Persistent Memory</small></div><span class="live" id="live"><i></i><span>Live</span></span></div>
 <div class="tools">
 <div class="seg" role="group" aria-label="Visual direction"><button data-t="geordie">Geordie</button><button data-t="forest">Forest</button><button data-t="midnight">Midnight</button><button data-t="onyx">Onyx</button><button data-t="light">Light</button></div>
 <button class="btn demo" id="bDemo1" title="Demo 1: Novel incident (Cold Start / Generic Advice)">Demo 1 (Cold Start)</button>
 <button class="btn demo" id="bDemo5" title="Demo 5: Similar past incident recall">Demo 5 (Pattern Match)</button>
-<button class="btn demo" id="bDemo20" title="Demo 20: Star Feature - Warning on Failed Fix">Demo 20 (Failed Fix Warning)</button>
-<button class="btn" id="bInc" title="Simulate a new incident">Simulate incident</button>
-<button class="btn" id="bOut" title="Simulate outage">Simulate outage</button>
-<button class="btn" id="bClr" title="Clear open incidents">Clear incidents</button>
+<button class="btn demo" id="bDemo20" title="Demo 20: Star Feature - Critical Warning on Failed Fix">Demo 20 (Failed Fix Warning)</button>
+<button class="btn demo" id="bCascade" title="Demo Cascade: Multi-service outage cascade">Cascade Outage</button>
+<button class="btn accent" id="bMemExp" title="Search and explore Hindsight memory bank">🧠 Memory Explorer</button>
+<button class="btn accent" id="bAntiPat" title="View team anti-patterns catalog">🚨 Anti-Patterns</button>
+<button class="btn" id="bInc" title="Simulate a new incident">Simulate Random</button>
+<button class="btn" id="bClr" title="Clear open incidents">Clear Queue</button>
 </div></header>
 
 <div id="hsBanner" class="banner-offline ok" style="display:none;">
-  <span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code>. Agent is memory-informed.</span>
+  <span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code> (40+ incidents retained). Agent is memory-informed.</span>
   <span id="hsStatus">Online</span>
 </div>
 
 <main>
 <section class="status" id="status" data-sev="0" aria-live="polite"><div><h2 id="stT"></h2><p id="stD"></p></div><div class="sum"><svg class="donut" viewBox="0 0 88 88" role="img" aria-label="Open incidents by severity"><circle class="dt" cx="44" cy="44" r="34"/><circle id="d1" class="ds" data-sev="1" cx="44" cy="44" r="34"/><circle id="d2" class="ds" data-sev="2" cx="44" cy="44" r="34"/><circle id="d3" class="ds" data-sev="3" cx="44" cy="44" r="34"/><circle id="d4" class="ds" data-sev="4" cx="44" cy="44" r="34"/><text id="dN" x="44" y="52"></text></svg><div class="legend col" id="stLg" aria-label="Open incidents by severity"></div></div></section>
 <section class="kpis" id="kpis" aria-label="Live metrics"></section>
-<section class="p" id="pInc"><div class="ph"><h2>Incidents<span class="cnt" id="cInc"></span></h2><button class="chip" id="fClr" hidden></button></div>
+<section class="p" id="pInc"><div class="ph"><h2>Active Incidents<span class="cnt" id="cInc"></span></h2><button class="chip" id="fClr" hidden></button></div>
 <p class="sub2">Live alerts. Expand to see Echo-Core's Agent Briefing, Memory ON/OFF toggle, and Failed Fix Warnings.</p>
 <div class="real"><div id="incList"></div><div class="empty" id="incEmpty" hidden></div></div><div class="skel"></div></section>
-<section class="p" id="pGraph"><div class="ph"><h2>Service knowledge graph</h2><button class="btn sm" id="gRst">Reset layout</button></div>
-<p class="sub2">How services depend on each other. The ring colour shows health. Click a service to filter its incidents.</p>
+<section class="p" id="pGraph"><div class="ph"><h2>Service Knowledge Graph</h2><button class="btn sm" id="gRst">Reset Layout</button></div>
+<p class="sub2">Real-time dependency topology. The ring colour shows health. Click a service to filter its incidents.</p>
 <div class="real"><div class="legend"></div><svg id="kg" viewBox="0 0 600 340" role="group" aria-label="Service dependency graph"></svg><p class="info" id="kgInfo"></p></div><div class="skel"></div></section>
-<section class="p" id="pLogs"><div class="ph"><h2>Live logs<span class="cnt" id="lCnt"></span></h2></div>
+<section class="p" id="pLogs"><div class="ph"><h2>Live Log Stream<span class="cnt" id="lCnt"></span></h2></div>
 <p class="sub2">System events streamed via Server-Sent Events (SSE). Search by service or keyword.</p>
 <div class="real"><div class="bar"><input id="q" type="search" placeholder="Search service or message" aria-label="Search logs"><span id="chips"></span><button class="btn sm" id="bPause" aria-pressed="false">Pause</button></div>
 <div class="logs" id="logs" role="log"></div>
@@ -213,19 +204,72 @@ dialog[open]{animation:pop .28s cubic-bezier(.2,.8,.2,1)}dialog[open]::backdrop{
 
 <!-- COMMAND CONFIRMATION DIALOG -->
 <dialog id="dlg"><h3 id="dT"></h3><p id="dD" style="margin:0;color:var(--mu)"></p><code id="dC"></code>
-<p class="warn" id="dW">⚠️ This affects live traffic. It cannot be undone from here.</p>
+<div id="dSafetyWarning" class="warn-failed" style="display:none;"></div>
+<p class="warn" id="dW">⚠️ This affects live production traffic. It cannot be undone from here.</p>
 <div id="dTy"><label for="dIn">Type the service name (<b id="dTargetSvc"></b>) to confirm:</label><input id="dIn" autocomplete="off" placeholder="service name"></div>
 <div class="dact"><button class="btn" id="dNo">Cancel</button><button class="btn pri" id="dGo">Run command</button></div></dialog>
 
 <!-- RESOLUTION & FEEDBACK DIALOG -->
 <dialog id="resDlg"><h3>Resolve Incident & Retain in Memory</h3>
-<p style="margin:0 0 10px;color:var(--mu)">Marking resolved feeds the outcome and your feedback back into Hindsight memory so Echo-Core gets smarter.</p>
+<p style="margin:0 0 10px;color:var(--mu)">Marking resolved feeds the outcome and engineer feedback back into Hindsight memory so Echo-Core continuously learns.</p>
 <label for="resNotes">Engineer Resolution Notes:</label>
 <input id="resNotes" value="Mitigation confirmed. Metrics returned to baseline.">
 <div style="margin:12px 0 6px">
   <label><input type="checkbox" id="resWorked" checked> Agent suggestion was effective</label>
 </div>
-<div class="dact"><button class="btn" id="resNo">Cancel</button><button class="btn pri" id="resGo">Resolve & Retain</button></div></dialog>
+<div class="dact"><button class="btn" id="resNo">Cancel</button><button class="btn pri" id="resGo">Resolve & Retain in Memory</button></div></dialog>
+
+<!-- SIDE-BY-SIDE MEMORY VS GENERIC COMPARISON MODAL -->
+<dialog id="compDlg" style="width:min(720px,calc(100vw - 24px))">
+  <h3 id="compTitle">⚖️ Memory vs Generic AI Comparison</h3>
+  <p style="margin:0;color:var(--mu)">Comparing Echo-Core's Hindsight persistent memory against naive zero-memory LLM advice.</p>
+  <div class="comp-grid">
+    <div class="comp-col gen">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b>Generic AI (Memory OFF)</b>
+        <span class="comp-badge danger">High Risk</span>
+      </div>
+      <p id="compGenCause" style="font-size:12px;color:var(--tx);margin:4px 0"></p>
+      <div style="font-size:12px;margin-top:6px"><b>Naive Recommendation:</b></div>
+      <code id="compGenCmd" style="font-size:11px;padding:6px;margin:4px 0"></code>
+      <div style="font-size:11px;color:var(--s1);margin-top:4px">⚠️ <b>Fatal Flaw:</b> <span id="compGenFlaw"></span></div>
+    </div>
+    <div class="comp-col mem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b>Echo-Core (Memory ON)</b>
+        <span class="comp-badge safe">Proven Fix</span>
+      </div>
+      <p id="compMemCause" style="font-size:12px;color:var(--tx);margin:4px 0"></p>
+      <div style="font-size:12px;margin-top:6px"><b>Memory-Backed Mitigation:</b></div>
+      <code id="compMemCmd" style="font-size:11px;padding:6px;margin:4px 0"></code>
+      <div style="font-size:11px;color:var(--ok);margin-top:4px">🛡️ <b>Failed Fix Warning:</b> <span id="compMemWarn"></span></div>
+    </div>
+  </div>
+  <div class="delta-box" id="compDeltaBox"></div>
+  <div class="dact"><button class="btn" id="compClose">Close</button></div>
+</dialog>
+
+<!-- HINDSIGHT MEMORY EXPLORER MODAL -->
+<dialog id="memExpDlg" style="width:min(680px,calc(100vw - 24px))">
+  <h3>🧠 Hindsight Memory Explorer (Bank: acme-sre)</h3>
+  <p style="margin:0;color:var(--mu)">Search memories retained in Hindsight using hybrid BM25 + vector search.</p>
+  <div style="display:flex;gap:8px;margin:12px 0">
+    <input id="memExpQuery" placeholder="Search keywords (e.g. connection pool, eviction, timeout)..." style="flex:1">
+    <button class="btn pri" id="memExpSearchBtn">Search</button>
+  </div>
+  <div id="memExpResults" style="max-height:360px;overflow:auto;font-size:13px">
+    <p style="color:var(--mu)">Enter a search term above to inspect Hindsight memory facts.</p>
+  </div>
+  <div class="dact"><button class="btn" id="memExpClose">Close</button></div>
+</dialog>
+
+<!-- ANTI-PATTERNS CATALOG MODAL -->
+<dialog id="antiPatDlg" style="width:min(680px,calc(100vw - 24px))">
+  <h3>🚨 Team Anti-Patterns Catalog</h3>
+  <p style="margin:0;color:var(--mu)">Documented historical mistakes and failed fixes across Acme production infrastructure.</p>
+  <div id="antiPatList" style="max-height:380px;overflow:auto;margin-top:12px"></div>
+  <div class="dact"><button class="btn" id="antiPatClose">Close</button></div>
+</dialog>
 
 <script>
 const $=(s,e=document)=>e.querySelector(s),rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0],clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
@@ -265,31 +309,30 @@ const F={rps:x=>Math.round(x).toLocaleString(),p95:x=>Math.round(x)+" ms",err:x=
 function tw(el,to,f){const from=el._v===undefined?to:el._v,t0=performance.now();el._v=to;cancelAnimationFrame(el._r);const s=n=>{const p=Math.min(1,(n-t0)/700),e=1-Math.pow(1-p,3);el.textContent=f(from+(to-from)*e);if(p<1)el._r=requestAnimationFrame(s)};el._r=requestAnimationFrame(s)}
 
 function renderK(){
-  const crit=incs.filter(i=>i.sev===1).length;
+  const crit=incs.filter(i=>i.sev===1&&i.status!=="resolved").length;
   K.forEach(([k])=>{
-    const d=$("#k-"+k);tw($(".val",d),{rps:M.rps,p95:M.p95,err:M.err,inc:incs.length}[k],F[k]);
+    const d=$("#k-"+k);tw($(".val",d),{rps:M.rps,p95:M.p95,err:M.err,inc:incs.filter(i=>i.status!=="resolved").length}[k],F[k]);
     const q=spark(k);$(".sl",d).setAttribute("d",q);$(".sa",d).setAttribute("d",q+"L100 28L0 28Z");
     const h=H[k];if(h&&h.length>1){
       const tr=(h[h.length-1]-h[0])/(h[0]||1)*100;
-      $(".sub",d).textContent={rps:(tr>=0?"Up ":"Down ")+Math.abs(tr).toFixed(1)+"% this minute",p95:M.p95>300?"Critical latency":M.p95>220?"Elevated":"Normal",err:M.err>2?"High failure rate":M.err>1?"Warning":"Normal",inc:crit?crit+" critical":incs.length?"Attention required":"All normal"}[k];
+      $(".sub",d).textContent={rps:(tr>=0?"Up ":"Down ")+Math.abs(tr).toFixed(1)+"% this minute",p95:M.p95>300?"Critical latency":M.p95>220?"Elevated":"Normal",err:M.err>2?"High failure rate":M.err>1?"Warning":"Normal",inc:crit?crit+" critical":incs.filter(i=>i.status!=="resolved").length?"Attention required":"All normal"}[k];
     }
   });
-  const bad=M.p95>300||M.err>2||incs.some(i=>i.sev===1),warn=M.p95>220||M.err>1||incs.length>3;
+  const bad=M.p95>300||M.err>2||incs.some(i=>i.sev===1&&i.status!=="resolved"),warn=M.p95>220||M.err>1||incs.filter(i=>i.status!=="resolved").length>3;
   ["p95","err"].forEach(k=>$("#k-"+k).dataset.s=(k==="p95"?M.p95>300:M.err>2)?"bad":(k==="p95"?M.p95>220:M.err>1)?"warn":"");
   $("#k-inc").dataset.s=bad?"bad":warn?"warn":"";renderStatus();
 }
 
 function renderStatus(){
-  const n=incs.length,w=n?Math.min(...incs.map(i=>i.sev)):0,c=incs.filter(i=>i.sev===1).length;
+  const active=incs.filter(i=>i.status!=="resolved"),n=active.length,w=n?Math.min(...active.map(i=>i.sev)):0,c=active.filter(i=>i.sev===1).length;
   $("#status").dataset.sev=w;const C=213.63;let off=0;
-  [1,2,3,4].forEach(s=>{const k=incs.filter(i=>i.sev===s).length,len=n?k/n*C:0,e=$("#d"+s);e.style.strokeDasharray=len+" "+C;e.style.strokeDashoffset=-off;off+=len});
+  [1,2,3,4].forEach(s=>{const k=active.filter(i=>i.sev===s).length,len=n?k/n*C:0,e=$("#d"+s);e.style.strokeDasharray=len+" "+C;e.style.strokeDashoffset=-off;off+=len});
   $("#dN").textContent=n;
-  $("#stLg").innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"]].map(([s,nm])=>`<span data-sev="${s}"><i></i>${nm}<b>${incs.filter(i=>i.sev===s).length}</b></span>`).join("");
+  $("#stLg").innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"]].map(([s,nm])=>`<span data-sev="${s}"><i></i>${nm}<b>${active.filter(i=>i.sev===s).length}</b></span>`).join("");
   $("#stT").textContent=n?`${n} open incident${n===1?"":"s"}${w<=2?" requiring attention":""}`:"All systems operational";
   $("#stD").textContent=n?(c?`${c} critical incident active. Echo-Core has synthesized memory briefings for each below.`:"Click an incident to inspect the memory-informed briefing vs generic advice."):"No active incidents. Live telemetry and logs stream continuously via SSE.";
 }
 
-/* toasts */
 function toast(t,b,sev,act){
   const e=document.createElement("div");e.className="toast";e.dataset.sev=sev||0;
   e.innerHTML=`<span class="bd">${sev?SEVN[sev]:"OK"}</span><div><b>${esc(t)}</b><small>${esc(b)}</small></div>`;
@@ -298,13 +341,12 @@ function toast(t,b,sev,act){
   setTimeout(()=>{e.classList.add("out");setTimeout(()=>e.remove(),300)},6500);
 }
 
-/* incidents rendering */
 function elInc(i){
   const e=document.createElement("article");e.className="inc new";e.dataset.id=i.id;
   e.innerHTML=`
     <button class="ih" aria-expanded="false">
       <span class="bd"></span>
-      <span class="it"><b></b><small><span class="id"></span><span class="sv"></span><span class="ag"></span><span class="dd"></span></small></span>
+      <span class="it"><b></b><small><span class="id"></span><span class="sv"></span><span class="ag"></span><span class="dd"></span><span class="cd"></span></small></span>
       <svg class="chev" viewBox="0 0 12 12" width="14" height="14"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
     </button>
     <div class="body"><div>
@@ -312,9 +354,12 @@ function elInc(i){
       <div class="brief-box">
         <div class="brief-header">
           <span><b>Echo-Core On-Call Briefing</b></span>
-          <div class="brief-toggle" data-id="${i.id}">
-            <button class="b-mem active" data-mode="mem">🧠 Memory ON</button>
-            <button class="b-gen" data-mode="gen">⚡ Memory OFF</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn sm b-comp" style="font-size:11px;padding:3px 8px">⚖️ Compare vs Generic</button>
+            <div class="brief-toggle" data-id="${i.id}">
+              <button class="b-mem active" data-mode="mem">🧠 Memory ON</button>
+              <button class="b-gen" data-mode="gen">⚡ Memory OFF</button>
+            </div>
           </div>
         </div>
         <div class="brief-content" id="bc-${i.id}">
@@ -335,7 +380,6 @@ function elInc(i){
     if(opened)fetchIncidentDetail(i);
   };
 
-  // Wire Memory toggle buttons
   const toggleBar=$(".brief-toggle",e);
   $(".b-mem",toggleBar).onclick=evt=>{
     evt.stopPropagation();
@@ -350,6 +394,11 @@ function elInc(i){
     $(".b-gen",toggleBar).classList.add("active");
     $(".b-mem",toggleBar).classList.remove("active");
     renderBriefing(i,e);
+  };
+
+  $(".b-comp",e).onclick=evt=>{
+    evt.stopPropagation();
+    showComparisonModal(i);
   };
 
   const a=$(".acts",e);
@@ -371,13 +420,13 @@ function renderBriefing(i,el){
   let html=`
     <p style="margin:4px 0"><b>Probable Root Cause:</b> ${esc(data.likely_cause || i.cause)}</p>
     <div class="fix-box">
-      <b>${isMem ? "Recommended Mitigation (Memory Proven)" : "Generic Textbook Advice"}</b>
+      <b>${isMem ? "Recommended Mitigation (Hindsight Memory Proven)" : "Generic Textbook Advice (No Past Context)"}</b>
       ${esc(data.recommended_fix || "Inspect logs and pod health.")}
       ${data.command ? `<code>$ ${esc(data.command)}</code>` : ""}
     </div>
   `;
 
-  if(isMem && data.failed_fixes && data.failed_fixes.length>5){
+  if(isMem && data.failed_fixes && data.failed_fixes.length>5 && !data.failed_fixes.toLowerCase().includes("no historical")){
     html+=`
       <div class="warn-failed">
         <b>🚨 CRITICAL: PREVIOUSLY FAILED FIX (DO NOT ATTEMPT)</b>
@@ -390,11 +439,10 @@ function renderBriefing(i,el){
     html+=`<div style="font-size:12px;color:var(--mu);margin-top:6px"><b>Historical Resolver:</b> ${esc(data.resolver)}</div>`;
   }
 
-  // Recalled memories inspector
   if(isMem && i.recalled_items && i.recalled_items.length>0){
     html+=`
       <div class="mem-view">
-        <span style="font-size:12px;font-weight:600;color:var(--mu)">Recalled from Hindsight Bank:</span><br>
+        <span style="font-size:12px;font-weight:600;color:var(--mu)">Recalled from Hindsight Bank (acme-sre):</span><br>
         ${i.recalled_items.slice(0,3).map(m=>`<span class="mem-pill" title="${esc(m.text)}">Ref: ${esc(m.id.slice(0,8))} (${esc(m.type||'past-incident')})</span>`).join("")}
       </div>
     `;
@@ -422,10 +470,16 @@ function upd(i,e,bump){
   $(".id",e).textContent=i.id;
   $(".sv",e).textContent=i.svc;
   $(".ag",e).textContent=ago(i.t);
+  
   const dd=$(".dd",e);
   if(i.duplicate_count>0){
     dd.innerHTML=`<span class="dedup-badge">${i.duplicate_count+1} merged</span>`;
   }else{dd.innerHTML="";}
+
+  const cd=$(".cd",e);
+  if(i.is_cascade){
+    cd.innerHTML=`<span class="cascade-badge">CASCADE</span>`;
+  }else{cd.innerHTML="";}
   
   $(".tl",e).innerHTML=(i.ev||[]).slice().reverse().map(([t,x])=>`<li><time>${fmt(t)}</time>${esc(x)}</li>`).join("");
   renderBriefing(i,e);
@@ -459,12 +513,12 @@ function reveal(i){
 }
 
 /* commands and resolution */
-let cur=null;const dlg=$("#dlg"),resDlg=$("#resDlg");
+let cur=null;const dlg=$("#dlg"),resDlg=$("#resDlg"),compDlg=$("#compDlg");
 
 function ask(i,c){
   cur={i,c};
   if(c.k==="resolve"){
-    $("#resNotes").value=`Resolved ${i.id} on ${i.svc}. Mitigation verified.`;
+    $("#resNotes").value=`Resolved ${i.id} on ${i.svc}. Mitigation verified in production.`;
     $("#resWorked").checked=true;
     resDlg.showModal();
     return;
@@ -476,6 +530,16 @@ function ask(i,c){
   $("#dW").hidden=$("#dTy").hidden=!c.risk;
   $("#dIn").value="";
   $("#dGo").disabled=!!c.risk;
+
+  // Check if command is dangerous anti-pattern
+  const sw=$("#dSafetyWarning");
+  if(i.svc==="payments" && c.k==="restart"){
+    sw.style.display="block";
+    sw.innerHTML="<b>🚨 ECHO-CORE ANTI-PATTERN WARNING:</b> Restarting payments deployment will cause a violent connection stampede that locks Postgres (observed in INC-1001). Are you sure?";
+  }else{
+    sw.style.display="none";
+  }
+
   dlg.showModal();
   c.risk&&$("#dIn").focus();
 }
@@ -502,7 +566,7 @@ $("#dGo").onclick=async()=>{
     b.textContent="Run command";
 
     if(result.catastrophic){
-      toast("🚨 DISASTER: Command Failed!",result.message,1);
+      toast("🚨 CATASTROPHE: Ignored Failed Fix Warning!",result.message,1);
     }else if(result.success){
       toast("Mitigation applied",result.message,i.sev);
     }
@@ -527,11 +591,32 @@ $("#resGo").onclick=async()=>{
       body:JSON.stringify({notes,worked,resolver:"Sarah Chen (Staff SRE)"})
     });
     const r=await res.json();
-    toast("Incident Resolved & Retained",`Feedback saved to Hindsight memory bank: ${worked?"Worked":"Did not work"}`,0);
+    toast("Incident Resolved & Retained",`Retained in Hindsight memory bank: ${worked?"Worked":"Did not work"}`,0);
     i.status="resolved";
     sync();renderK();
   }catch(err){console.error("Resolve error:",err)}
 };
+
+/* comparison modal */
+function showComparisonModal(i){
+  const mem = i.briefing || {};
+  const gen = i.generic_briefing || {};
+  const comp = i.comparison || {};
+
+  $("#compTitle").textContent = `⚖️ Memory vs Generic AI: ${i.id} (${i.svc})`;
+  $("#compGenCause").textContent = gen.likely_cause || "Generic transient spike";
+  $("#compGenCmd").textContent = "$ " + (gen.command || `kubectl rollout restart deploy/${i.svc}`);
+  $("#compGenFlaw").textContent = comp.generic_fatal_flaw || "Suggests pod restart without pool limits context.";
+
+  $("#compMemCause").textContent = mem.likely_cause || i.cause;
+  $("#compMemCmd").textContent = "$ " + (mem.command || "kubectl patch configmap ...");
+  $("#compMemWarn").textContent = mem.failed_fixes || "None documented.";
+
+  $("#compDeltaBox").innerHTML = `<b>Risk Prevented:</b> ${esc(comp.risk_prevented || "Hindsight memory prevents repeating known failed fixes.")}<br><small style="color:var(--mu)">Echo-Core automatically cites historical resolver: <b>${esc(mem.resolver || 'SRE')}</b></small>`;
+
+  compDlg.showModal();
+}
+$("#compClose").onclick=()=>compDlg.close();
 
 /* graph */
 const svg=$("#kg"),NS="http://www.w3.org/2000/svg",mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.append(e);return e};
@@ -580,7 +665,7 @@ $("#q").oninput=e=>{st.q=e.target.value.trim();renderLogs()};
 $("#lClr").onclick=()=>{$("#q").value="";st.q="";document.querySelector('#chips [data-l="ALL"]').click()};
 $("#bPause").onclick=e=>{st.paused=!st.paused;e.target.setAttribute("aria-pressed",st.paused);e.target.textContent=st.paused?"Resume":"Pause"};
 
-/* simulate demo buttons */
+/* demo triggers */
 async function triggerScenario(num){
   try{
     const res=await fetch("/api/incidents/simulate",{
@@ -595,7 +680,6 @@ async function triggerScenario(num){
     }else{
       toast(`Demo ${num} Triggered`,inc.title,inc.sev,()=>reveal(inc));
     }
-    // Update local incs list
     const idx=incs.findIndex(x=>x.id===inc.id);
     if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
     sync();health();renderK();
@@ -606,6 +690,19 @@ async function triggerScenario(num){
 $("#bDemo1").onclick=()=>triggerScenario(1);
 $("#bDemo5").onclick=()=>triggerScenario(5);
 $("#bDemo20").onclick=()=>triggerScenario(20);
+
+$("#bCascade").onclick=async()=>{
+  try{
+    const res=await fetch("/api/incidents/cascade",{method:"POST"});
+    const data=await res.json();
+    data.cascade_incidents.forEach(inc=>{
+      const idx=incs.findIndex(x=>x.id===inc.id);
+      if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
+    });
+    sync();health();renderK();
+    toast("Multi-Service Cascade Triggered",`Root cause identified: ${data.root_cause_service}`,1,()=>reveal(data.cascade_incidents[0]));
+  }catch(e){console.error(e)}
+};
 
 $("#bInc").onclick=async()=>{
   try{
@@ -620,17 +717,69 @@ $("#bInc").onclick=async()=>{
   }catch(e){console.error(e)}
 };
 
-$("#bOut").onclick=()=>{
-  st.err=true;
-  $("#live").classList.add("off");
-  $("#live span").textContent="Offline";
-  toast("Major Outage Alert","All edge gateways reporting 503 cascades",1);
-};
-
 $("#bClr").onclick=()=>{
   incs.forEach(i=>i.status="resolved");
   sync();health();renderK();toast("Queue Cleared","All active incidents marked resolved",0);
 };
+
+/* MEMORY EXPLORER DIALOG */
+const memExpDlg=$("#memExpDlg");
+$("#bMemExp").onclick=()=>{
+  memExpDlg.showModal();
+  $("#memExpQuery").focus();
+};
+$("#memExpClose").onclick=()=>memExpDlg.close();
+
+$("#memExpSearchBtn").onclick=async()=>{
+  const q=$("#memExpQuery").value.trim();
+  if(!q)return;
+  $("#memExpResults").innerHTML="<p style='color:var(--mu)'>Searching Hindsight memory...</p>";
+  try{
+    const res=await fetch(`/api/memory/search?q=${encodeURIComponent(q)}`);
+    const data=await res.json();
+    if(!data.results||!data.results.length){
+      $("#memExpResults").innerHTML="<p style='color:var(--mu)'>No matching memories found in bank.</p>";
+      return;
+    }
+    $("#memExpResults").innerHTML=data.results.map(r=>`
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mu)">
+          <span>ID: <code>${esc(r.id.slice(0,8))}</code></span>
+          <span>Type: <b>${esc(r.type||'memory')}</b></span>
+        </div>
+        <p style="margin:4px 0">${esc(r.text)}</p>
+      </div>
+    `).join("");
+  }catch(err){
+    $("#memExpResults").innerHTML=`<p style="color:var(--s1)">Search failed: ${esc(err)}</p>`;
+  }
+};
+
+/* ANTI-PATTERNS CATALOG DIALOG */
+const antiPatDlg=$("#antiPatDlg");
+$("#bAntiPat").onclick=async()=>{
+  antiPatDlg.showModal();
+  $("#antiPatList").innerHTML="<p style='color:var(--mu)'>Loading anti-patterns from memory...</p>";
+  try{
+    const res=await fetch("/api/memory/anti-patterns");
+    const list=await res.json();
+    $("#antiPatList").innerHTML=list.slice(0,15).map(ap=>`
+      <div class="ap-item">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b>${esc(ap.service.toUpperCase())} – ${esc(ap.title)}</b>
+          <span style="font-size:11px;color:var(--mu)">Ref: ${esc(ap.incident_id)}</span>
+        </div>
+        <div class="warn-failed" style="margin:4px 0 2px">
+          <b>DO NOT ATTEMPT:</b> ${esc(ap.dangerous_action)}
+        </div>
+        <small style="color:var(--mu)">Resolved by: ${esc(ap.resolver)}</small>
+      </div>
+    `).join("");
+  }catch(e){
+    $("#antiPatList").innerHTML=`<p style="color:var(--s1)">Failed to load: ${esc(e)}</p>`;
+  }
+};
+$("#antiPatClose").onclick=()=>antiPatDlg.close();
 
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
   if(!b.dataset.t)return;
@@ -666,7 +815,6 @@ function connectSSE(){
         });
         sync();health();
       }
-      // Hindsight banner status
       const b=$("#hsBanner");
       if(data.hindsight){
         b.style.display="flex";
@@ -695,7 +843,6 @@ document.querySelectorAll(".legend").forEach(l=>l.innerHTML=[[1,"Critical"],[2,"
 place();health();paintSel();
 {const t="geordie";document.documentElement.dataset.theme=t;document.querySelectorAll(".seg button").forEach(x=>{if(x.dataset.t)x.setAttribute("aria-pressed",x.dataset.t===t)})}
 
-// Initial incidents fetch
 fetch("/api/incidents").then(r=>r.json()).then(data=>{
   incs=data;
   sync();health();renderK();
