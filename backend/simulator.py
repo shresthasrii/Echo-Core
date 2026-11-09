@@ -10,7 +10,8 @@ logger = logging.getLogger("echo_core.simulator")
 SERVICES = [
     "api-gateway", "auth", "orders", "search",
     "payments", "ml-ranker", "postgres", "redis", "queue",
-    "host-system", "host-memory", "host-cpu", "host-disk"
+    "host-system", "host-memory", "host-cpu", "host-disk",
+    "client-device", "client-memory", "client-cpu"
 ]
 
 LOG_TEMPLATES = {

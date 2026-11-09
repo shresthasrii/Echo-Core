@@ -1,4 +1,5 @@
 import os
+import time
 import asyncio
 import json
 import random
@@ -604,6 +605,68 @@ async def run_host_diagnostic_test():
     report["created_incidents"] = created_incidents
     report["staged_suggestions"] = staged_suggestions
     return report
+
+class ClientReportRequest(BaseModel):
+    specs: Dict[str, Any]
+    metrics: Dict[str, Any]
+    checks: List[Dict[str, Any]]
+    overall_health: str
+    incidents: Optional[List[Dict[str, Any]]] = []
+    remediations: Optional[List[Dict[str, Any]]] = []
+
+@app.post("/api/host/client-report")
+async def report_client_diagnostic_test(req: ClientReportRequest):
+    """
+    Receives live hardware & system benchmark test performed directly on the client's device/browser.
+    Registers client incidents, analyzes them with the agent, and stages approval-gated mitigation actions.
+    """
+    created_incidents = []
+    for inc_data in (req.incidents or []):
+        res = sim.trigger_incident(
+            svc=inc_data.get("svc", "client-device"),
+            sev=inc_data.get("sev", 2),
+            title=inc_data.get("title", "Client Device Hardware Alert"),
+            cause=inc_data.get("cause", "Resource saturation on active user device"),
+            error_log=inc_data.get("error_log", "CLIENT_ALERT: Threshold breached on client machine.")
+        )
+        inc = res["incident"]
+        analysis = await agent.analyze_incident(inc)
+        inc["briefing"] = analysis["memory_informed"]
+        inc["generic_briefing"] = analysis["generic"]
+        inc["comparison"] = analysis.get("comparison", {})
+        inc["recalled_items"] = analysis["recalled_items"]
+        await db.save_incident(inc)
+        created_incidents.append(inc)
+
+    staged_suggestions = []
+    for rem in (req.remediations or []):
+        target_inc_id = created_incidents[0]["id"] if created_incidents else "INC-CLIENT"
+        target_svc = created_incidents[0]["svc"] if created_incidents else "client-device"
+        sug = await db.create_suggestion(
+            incident_id=target_inc_id,
+            svc=target_svc,
+            action_title=rem.get("action_title", "Optimize Client Workloads"),
+            recommendation=f"Client device remediation for {req.specs.get('os', 'User Device')}: {rem.get('action_title')}",
+            command=rem.get("command", "ops client purge-cache"),
+            risk_level=rem.get("risk_level", "LOW"),
+            reasoning=rem.get("reasoning", "Reduces client device thread and memory consumption.")
+        )
+        staged_suggestions.append(sug)
+
+    await db.log_audit(
+        action="CLIENT_DIAGNOSTIC_TEST",
+        incident_id=created_incidents[0]["id"] if created_incidents else "CLIENT-TEST",
+        svc="client-device",
+        actor="Client Diagnostic Engine",
+        details=f"Diagnostic on {req.specs.get('os')} ({req.specs.get('cpuCores', 4)} cores, {req.specs.get('deviceRam')}). Health: {req.overall_health}"
+    )
+
+    return {
+        "success": True,
+        "created_incidents": created_incidents,
+        "staged_suggestions": staged_suggestions,
+        "reported_at": int(time.time() * 1000)
+    }
 
 # ====================
 # DATABASE & AUDIT ENDPOINTS

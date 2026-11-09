@@ -115,6 +115,28 @@ RUNBOOKS = {
             "Confirm multi-core hardware threading and power management state.",
             "Synchronize local machine telemetry with SRE observability baseline."
         ]
+    },
+    "client-device": {
+        "title": "Client Workstation & User Device Runbook",
+        "procedures": [
+            "Inspect client device CPU thread responsiveness, RAM heap allocation, and GPU acceleration.",
+            "Check local browser tab density and DOM node complexity.",
+            "Mitigation: Recycle dormant browser worker threads and release WebGL render contexts."
+        ]
+    },
+    "client-memory": {
+        "title": "Client Device Memory & Heap Saturation Runbook",
+        "procedures": [
+            "Identify memory leak in client DOM node retainers or detached window objects.",
+            "Mitigation: Trigger browser garbage collection via memory pressure signal and release cached buffers."
+        ]
+    },
+    "client-cpu": {
+        "title": "Client Device CPU Event Loop Saturation Runbook",
+        "procedures": [
+            "Detect excessive main-thread blocking operations or runaway animation frame loops.",
+            "Mitigation: Throttle background rendering framerate and offload computation to web workers."
+        ]
     }
 }
 
