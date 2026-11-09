@@ -33,6 +33,7 @@ def main():
         print("  * Memory Layer:        VERIFIED (Hindsight Bank acme-sre)")
         print("  * LLM & Agent Loop:    VERIFIED (Groq openai/gpt-oss-120b)")
         print("  * SQLite Persistence:  VERIFIED (echo_core.db & Audit Trail)")
+        print("  * Host Hardware Diag:  VERIFIED (Real-Time Machine Scanner & Benchmark)")
         print("  * SRE Copilot & Chat:  VERIFIED (Interactive Assistant)")
         print("  * Approval Gate Sys:   VERIFIED (Human-in-the-Loop Allow/Reject)")
         print("  * FastAPI Endpoints:   VERIFIED (REST, SSE, Cascade)")

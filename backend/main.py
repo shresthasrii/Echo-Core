@@ -20,6 +20,7 @@ from backend.memory import memory
 from backend.agent import agent
 from backend.simulator import sim, DEMO_SCENARIOS
 from backend.assistant import assistant
+from backend.host_scanner import host_scanner
 from scripts.seed_memory import seed_memory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -512,6 +513,71 @@ async def generate_incident_suggestion(inc_id: str):
     )
 
     return sug
+
+# ====================
+# HOST SYSTEM DIAGNOSTICS & BENCHMARK
+# ====================
+@app.get("/api/host/metrics")
+async def get_host_metrics():
+    """Returns live hardware metrics (CPU, RAM, Disk, top processes) from this computer."""
+    return host_scanner.get_live_metrics()
+
+@app.post("/api/host/diagnostic-test")
+async def run_host_diagnostic_test():
+    """
+    Executes real-time hardware & operating system diagnostic benchmark on this computer.
+    Detects real host incidents, registers them in the incident queue, persists to SQLite,
+    and stages approval-gated AI mitigation actions.
+    """
+    report = host_scanner.run_diagnostic_test()
+    created_incidents = []
+
+    for inc_data in report["incidents"]:
+        res = sim.trigger_incident(
+            svc=inc_data["svc"],
+            sev=inc_data["sev"],
+            title=inc_data["title"],
+            cause=inc_data["cause"],
+            error_log=inc_data.get("error_log")
+        )
+        inc = res["incident"]
+        
+        # Analyze with agent
+        analysis = await agent.analyze_incident(inc)
+        inc["briefing"] = analysis["memory_informed"]
+        inc["generic_briefing"] = analysis["generic"]
+        inc["comparison"] = analysis.get("comparison", {})
+        inc["recalled_items"] = analysis["recalled_items"]
+        await db.save_incident(inc)
+        created_incidents.append(inc)
+
+    # Stage approval-gated mitigation suggestions
+    staged_suggestions = []
+    for rem in report.get("remediations", []):
+        target_inc_id = created_incidents[0]["id"] if created_incidents else "INC-HOST"
+        target_svc = created_incidents[0]["svc"] if created_incidents else "host-system"
+        sug = await db.create_suggestion(
+            incident_id=target_inc_id,
+            svc=target_svc,
+            action_title=rem["action_title"],
+            recommendation=f"Host remediation for {report['specs']['hostname']}: {rem['action_title']}",
+            command=rem["command"],
+            risk_level=rem["risk_level"],
+            reasoning=rem["reasoning"]
+        )
+        staged_suggestions.append(sug)
+
+    await db.log_audit(
+        action="HOST_DIAGNOSTIC_TEST",
+        incident_id=created_incidents[0]["id"] if created_incidents else "HOST-TEST",
+        svc="host-system",
+        actor="Host Diagnostic Engine",
+        details=f"Host test on {report['specs']['hostname']} ({report['specs']['os']}). Health: {report['overall_health']} ({len(created_incidents)} incidents identified)"
+    )
+
+    report["created_incidents"] = created_incidents
+    report["staged_suggestions"] = staged_suggestions
+    return report
 
 # ====================
 # DATABASE & AUDIT ENDPOINTS

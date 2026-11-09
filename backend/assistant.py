@@ -8,6 +8,7 @@ from backend.memory import memory
 from backend.agent import agent, RUNBOOKS
 from backend.simulator import sim
 from backend.database import db
+from backend.host_scanner import host_scanner
 
 logger = logging.getLogger("echo_core.assistant")
 
@@ -45,12 +46,21 @@ SPECIFIC INCIDENT CONTEXT ({target_inc['id']}):
 - Anti-Pattern Warning: {target_inc.get('briefing', {}).get('failed_fixes', 'None recorded')}
 """
 
+        host_metrics = host_scanner.get_live_metrics()
+        host_context = f"""HOST COMPUTER TELEMETRY ({host_metrics['specs']['hostname']} - {host_metrics['specs']['os']}):
+- CPU Load: {host_metrics['cpu_percent']}% across {host_metrics['specs']['cpu_cores']} cores
+- Memory Used: {host_metrics['ram_percent']}% ({host_metrics['ram_used_gb']}GB of {host_metrics['specs']['total_ram_gb']}GB)
+- Disk Used: {host_metrics['disk_percent']}%
+- Top Process: {host_metrics['top_processes'][0]['name'] if host_metrics['top_processes'] else 'None'} ({host_metrics['top_processes'][0]['ram_percent'] if host_metrics['top_processes'] else 0}% RAM)
+"""
+
         context = f"""CURRENT CLUSTER TELEMETRY:
 - Traffic RPS: {sim.rps:.0f} req/s
 - p95 Latency: {sim.p95:.1f} ms (Threshold: 220ms, Critical: 300ms)
 - Error Rate: {sim.err:.2f}% (Threshold: 1.0%, Critical: 2.0%)
 - Cluster Status: {"CRITICAL OVERLOAD" if sim.p95 > 300 or sim.err > 2.0 else "ELEVATED STRAIN" if sim.p95 > 200 else "HEALTHY"}
 
+{host_context}
 ACTIVE INCIDENTS:
 {inc_str}
 {target_context}
@@ -65,6 +75,32 @@ ACTIVE INCIDENTS:
     ) -> Dict[str, Any]:
         """Provides expert deterministic guidance when LLM API key is not present or offline."""
         msg_lower = user_message.lower()
+
+        # Check if scanning computer
+        if any(w in msg_lower for w in ["scan", "computer", "host", "laptop", "pc", "hardware"]):
+            host_metrics = host_scanner.get_live_metrics()
+            specs = host_metrics["specs"]
+            top_p = host_metrics["top_processes"][0] if host_metrics["top_processes"] else {"name": "idle", "ram_percent": 0}
+            content = (
+                f"🖥️ **Live Host Computer Hardware Scan**\n\n"
+                f"- **Host Machine:** `{specs['hostname']}` ({specs['os']} {specs['architecture']})\n"
+                f"- **CPU Usage:** **{host_metrics['cpu_percent']}%** across {specs['cpu_cores']} cores\n"
+                f"- **RAM Utilization:** **{host_metrics['ram_percent']}%** ({host_metrics['ram_used_gb']}GB / {specs['total_ram_gb']}GB)\n"
+                f"- **Storage Volume:** **{host_metrics['disk_percent']}%** occupied ({specs.get('disk_free_gb')}GB free headroom)\n"
+                f"- **Top Resource Consumer:** `{top_p['name']}` ({top_p['ram_percent']}% RAM)\n\n"
+                f"**Diagnostics:** {'⚠️ Elevated RAM utilization detected.' if host_metrics['ram_percent'] > 70 else '✅ All host hardware metrics are operating within safe SRE tolerances.'}\n\n"
+                f"I have staged a host optimization proposal below. Click **Allow** to authorize."
+            )
+            suggestion = {
+                "incident_id": "INC-HOST",
+                "svc": "host-system",
+                "action_title": f"Flush Memory Cache & Optimize {specs['hostname']}",
+                "recommendation": f"Performs runtime cache purge on {specs['hostname']} to release {top_p['name']} standby buffers.",
+                "command": "powershell -Command [System.GC]::Collect(); Clear-HostCache" if "Windows" in specs["os"] else "sync; echo 3 > /proc/sys/vm/drop_caches",
+                "risk_level": "LOW",
+                "reasoning": f"Optimizes host operating system headroom without interrupting user applications."
+            }
+            return {"content": content, "suggestion": suggestion}
 
         # Check if cascade or overload
         is_cascade = any(i.get("is_cascade") for i in active_incidents) or "cascade" in msg_lower or "overload" in msg_lower

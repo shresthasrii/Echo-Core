@@ -83,6 +83,38 @@ RUNBOOKS = {
             "Check memory fragmentation and preload jemalloc.",
             "Reduce inference batch size or switch to mixed precision FP16."
         ]
+    },
+    "host-memory": {
+        "title": "Host Machine Physical RAM & Swap Runbook",
+        "procedures": [
+            "Inspect top resident set size (RSS) processes on the host computer.",
+            "WARNING: Do NOT abruptly terminate parent desktop or shell processes without confirmation.",
+            "Mitigation: Purge standby file cache, trigger runtime garbage collection, or close heavy browser tabs."
+        ]
+    },
+    "host-cpu": {
+        "title": "Host Machine Multi-Core CPU Load Runbook",
+        "procedures": [
+            "Inspect runaway compute loops and high-load worker threads.",
+            "Mitigation: Lower process scheduling priority to BelowNormal/nice +10 to prevent host lockup.",
+            "Tune worker concurrency to match logical core count."
+        ]
+    },
+    "host-disk": {
+        "title": "Host Machine Local Storage & Volume Runbook",
+        "procedures": [
+            "Inspect available disk space against the 15% free headroom threshold.",
+            "Mitigation: Safely clear ephemeral temp directories and stale package build caches.",
+            "Archive or truncate rotated logs."
+        ]
+    },
+    "host-system": {
+        "title": "Host Operating System Hardware & Benchmark Runbook",
+        "procedures": [
+            "Verify operating system kernel responsiveness and driver load.",
+            "Confirm multi-core hardware threading and power management state.",
+            "Synchronize local machine telemetry with SRE observability baseline."
+        ]
     }
 }
 

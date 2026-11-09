@@ -14,6 +14,7 @@ In modern distributed systems, on-call engineers suffer from **institutional amn
 2. **SQLite Database Persistence (`echo_core.db`)**: Persists all incident lifecycles, alerts, chat conversations, and an immutable audit trail across server restarts.
 3. **Interactive SRE AI Copilot**: A real-time conversational assistant providing overload advice and cascade triage.
 4. **Human-in-the-Loop Approval Gate**: When AI formulates a mitigation action, it is staged with an explicit **"Allow" (Execute)** and **"Reject"** decision gate. The agent **never executes** until authorized by an engineer.
+5. **Real Host Computer Diagnostic Benchmark**: Wherever Echo-Core runs (laptop, server, or container), it reads the actual host hardware (CPU, RAM, Disk, top processes) and runs a diagnostic benchmark test that detects real host-level incidents with staged approval mitigations.
 
 ---
 
@@ -155,7 +156,19 @@ run.bat
 3. Echo-Core analyzes the dependency chain and pinpoints `payments` as the root cause.
 4. Ask the Copilot: *"Triage cascade root cause and suggest mitigation"*.
 
-### Step 6: Verify Database Persistence & Audit Trail
+### Step 6: Test Real Host Computer Diagnostics & Benchmark
+1. In the header toolbar, click the cyan **`🖥️ Host Scan`** button.
+2. The modal instantly reads this computer's actual hardware:
+   - OS, Hostname, CPU Cores, Total RAM, Primary Disk Space.
+   - Live real-time utilization gauges for CPU %, RAM %, and Disk %.
+   - Top resource-consuming processes running on this machine (e.g. browser, editor, background tools).
+3. Click **`▶️ Run Host System Diagnostic Benchmark Test`**:
+   - The engine benchmarks the host computer across 5 criteria (RAM headroom, CPU saturation, Disk storage, Process density, OS kernel).
+   - If memory, CPU, or storage thresholds are elevated on this machine, it **automatically detects and raises a live host incident** (e.g., `Elevated Host RAM Utilization on [hostname]`).
+   - Stages an approval-gated mitigation action (e.g., *Flush Memory Cache & Optimize [hostname]*).
+4. Review the staged mitigation and click **`Allow`** to authorize the host optimization!
+
+### Step 7: Verify Database Persistence & Audit Trail
 1. Click the **`🗄️ Database & Audit`** button in the header.
 2. Inspect the counters: Total Incidents, Alerts Persisted, Chat Messages, and Audit Events.
 3. Scroll through the Audit Trail to see timestamped entries of every command, suggestion approval, and incident resolution.
@@ -163,19 +176,20 @@ run.bat
 
 ---
 
-## 6. Automated Test Suite (23 Tests)
+## 8. Automated Test Suite (26 Tests)
 
-Run the automated test suite verifying memory, database, LLM fallback, and approval gate:
+Run the automated test suite verifying memory, database, host diagnostics, LLM fallback, and approval gate:
 ```cmd
 python tests/run_tests.py
 ```
 **Output:**
 ```
 ======================================================================
-  [SUCCESS] All test suites PASSED in 183.80s!
+  [SUCCESS] All test suites PASSED!
   * Memory Layer:        VERIFIED (Hindsight Bank acme-sre)
   * LLM & Agent Loop:    VERIFIED (Groq openai/gpt-oss-120b)
   * SQLite Persistence:  VERIFIED (echo_core.db & Audit Trail)
+  * Host Hardware Diag:  VERIFIED (Real-Time Machine Scanner & Benchmark)
   * SRE Copilot & Chat:  VERIFIED (Interactive Assistant)
   * Approval Gate Sys:   VERIFIED (Human-in-the-Loop Allow/Reject)
   * FastAPI Endpoints:   VERIFIED (REST, SSE, Cascade)

@@ -262,6 +262,7 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
 <button class="btn demo" id="bDemo5" title="Demo 5: Similar past incident recall">Demo 5 (Pattern Match)</button>
 <button class="btn demo" id="bDemo20" title="Demo 20: Star Feature - Critical Warning on Failed Fix">Demo 20 (Failed Fix Warning)</button>
 <button class="btn demo" id="bCascade" title="Demo Cascade: Multi-service outage cascade">Cascade Outage</button>
+<button class="btn demo" id="bHostDiag" title="Inspect real hardware and run diagnostic benchmark test on this computer" style="background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff">🖥️ Host Scan</button>
 <button class="btn pri" id="bApprovals" title="View pending AI mitigation actions requiring approval">🛡️ Approvals <span id="appBadge" class="dedup-badge" style="display:none;background:var(--ok);color:#000">0</span></button>
 <button class="btn accent" id="bDbAudit" title="Inspect SQLite Database records and Audit Trail">🗄️ Database & Audit</button>
 <button class="btn accent" id="bMemExp" title="Search and explore Hindsight memory bank">🧠 Memory</button>
@@ -313,6 +314,7 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
       </div>
     </div>
     <div class="chat-chips">
+      <button class="chat-chip" data-q="Scan my host computer hardware and report any active incidents">🖥️ Scan My Computer</button>
       <button class="chat-chip" data-q="What should I do right now? Systems are overloading!">🔥 Overload Help</button>
       <button class="chat-chip" data-q="Triage cascading outage root cause and suggest mitigation">💥 Triage Cascade</button>
       <button class="chat-chip" data-q="Propose a safe mitigation for active incidents">💡 Suggest Mitigation</button>
@@ -369,6 +371,70 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
     </table>
   </div>
   <div class="dact"><button class="btn" id="dbClose">Close</button></div>
+</dialog>
+
+<!-- HOST SYSTEM HARDWARE & DIAGNOSTIC MODAL -->
+<dialog id="hostDlg" style="width:min(780px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:24px">🖥️</span>
+      <div>
+        <h3 style="margin:0">Host Computer Hardware & Incident Diagnostics</h3>
+        <small style="color:var(--mu)" id="hostSpecsLine">Reading local machine hardware...</small>
+      </div>
+    </div>
+    <button class="btn sm" id="hostRefreshBtn">Refresh Live</button>
+  </div>
+  <p style="margin:0 0 12px;color:var(--mu);font-size:13px">
+    Reads the actual computer where Echo-Core is running (CPU, RAM, Disk, active processes) and detects real host-level incidents.
+  </p>
+  <div class="db-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+    <div class="db-card">
+      <small>Live CPU Utilization</small>
+      <b id="hostCpuVal" style="color:var(--g1)">–%</b>
+      <div style="height:6px;background:var(--bd);border-radius:3px;margin-top:6px;overflow:hidden">
+        <div id="hostCpuBar" style="height:100%;width:0%;background:var(--g1);transition:width .4s"></div>
+      </div>
+    </div>
+    <div class="db-card">
+      <small>Live RAM Utilization</small>
+      <b id="hostRamVal" style="color:var(--s2)">–%</b>
+      <div style="height:6px;background:var(--bd);border-radius:3px;margin-top:6px;overflow:hidden">
+        <div id="hostRamBar" style="height:100%;width:0%;background:var(--s2);transition:width .4s"></div>
+      </div>
+    </div>
+    <div class="db-card">
+      <small>Primary Volume Disk</small>
+      <b id="hostDiskVal" style="color:var(--ok)">–%</b>
+      <div style="height:6px;background:var(--bd);border-radius:3px;margin-top:6px;overflow:hidden">
+        <div id="hostDiskBar" style="height:100%;width:0%;background:var(--ok);transition:width .4s"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;margin:14px 0">
+    <button class="btn demo" id="bRunHostTest" style="flex:1;padding:11px 18px;font-size:14px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff">
+      ▶️ Run Host System Diagnostic Benchmark Test
+    </button>
+  </div>
+
+  <div id="hostResults" style="display:none;margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h4 style="margin:0">Diagnostic Benchmark Results:</h4>
+      <span id="hostHealthBadge" class="comp-badge safe" style="font-size:12px">HEALTHY</span>
+    </div>
+    <div id="hostChecksList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <h4 style="margin:16px 0 6px">Top Resource-Consuming Host Processes on this Computer:</h4>
+  <div style="max-height:160px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+    <table class="audit-table">
+      <thead><tr><th>Process Name</th><th>RAM Usage (%)</th><th>CPU Activity (%)</th></tr></thead>
+      <tbody id="hostProcsBody"><tr><td colspan="3" style="text-align:center;color:var(--mu)">Loading processes...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="dact"><button class="btn" id="hostClose">Close</button></div>
 </dialog>
 
 <!-- COMMAND CONFIRMATION DIALOG -->
@@ -1201,6 +1267,97 @@ async function showDatabaseModal(){
     console.error("DB modal error:",e);
   }
 }
+
+/* ========================================================
+   HOST SYSTEM HARDWARE & DIAGNOSTICS
+======================================================== */
+const hostDlg=$("#hostDlg");
+$("#bHostDiag").onclick=()=>showHostModal();
+$("#hostClose").onclick=()=>hostDlg.close();
+$("#hostRefreshBtn").onclick=()=>loadHostMetrics();
+
+async function showHostModal(){
+  hostDlg.showModal();
+  await loadHostMetrics();
+}
+
+async function loadHostMetrics(){
+  try{
+    const res=await fetch("/api/host/metrics");
+    const data=await res.json();
+    const specs=data.specs||{};
+
+    $("#hostSpecsLine").textContent=`${specs.os||'OS'} • Host: ${specs.hostname||'local'} • ${specs.cpu_cores||'Multi'}-Core (${specs.architecture||'x64'}) • RAM: ${specs.total_ram_gb||0}GB`;
+    $("#hostCpuVal").textContent=`${data.cpu_percent}%`;
+    $("#hostCpuBar").style.width=`${Math.min(100, data.cpu_percent)}%`;
+
+    $("#hostRamVal").textContent=`${data.ram_percent}% (${data.ram_used_gb}GB)`;
+    $("#hostRamBar").style.width=`${Math.min(100, data.ram_percent)}%`;
+
+    $("#hostDiskVal").textContent=`${data.disk_percent}%`;
+    $("#hostDiskBar").style.width=`${Math.min(100, data.disk_percent)}%`;
+
+    if(data.top_processes&&data.top_processes.length){
+      $("#hostProcsBody").innerHTML=data.top_processes.map(p=>`
+        <tr>
+          <td><b>${esc(p.name)}</b></td>
+          <td><span class="chip" style="font-size:11px">${p.ram_percent}%</span></td>
+          <td>${p.cpu_percent}%</td>
+        </tr>
+      `).join("");
+    }else{
+      $("#hostProcsBody").innerHTML="<tr><td colspan='3' style='text-align:center;color:var(--mu)'>No heavy processes detected.</td></tr>";
+    }
+  }catch(e){
+    console.error("load host metrics error:",e);
+  }
+}
+
+$("#bRunHostTest").onclick=async()=>{
+  const btn=$("#bRunHostTest");
+  btn.disabled=true;
+  btn.textContent="Running Hardware & OS Benchmark on this computer...";
+  $("#hostResults").style.display="none";
+
+  try{
+    const res=await fetch("/api/host/diagnostic-test",{method:"POST"});
+    const report=await res.json();
+    btn.disabled=false;
+    btn.textContent="▶️ Re-Run Host System Diagnostic Benchmark Test";
+
+    $("#hostResults").style.display="block";
+    const hb=$("#hostHealthBadge");
+    hb.textContent=report.overall_health;
+    hb.className="comp-badge "+(report.overall_health==="HEALTHY"?"safe":"danger");
+
+    $("#hostChecksList").innerHTML=report.checks.map(c=>`
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <b>${esc(c.name)}</b>
+          <div style="font-size:12px;color:var(--mu)">${esc(c.detail)}</div>
+        </div>
+        <span class="comp-badge ${c.status==='PASSED'?'safe':'danger'}">${esc(c.status)}</span>
+      </div>
+    `).join("");
+
+    if(report.created_incidents&&report.created_incidents.length){
+      report.created_incidents.forEach(inc=>{
+        const idx=incs.findIndex(i=>i.id===inc.id);
+        if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
+      });
+      sync();health();renderK();
+      toast(`Host Incident Detected`,report.created_incidents[0].title,report.created_incidents[0].sev,()=>reveal(report.created_incidents[0]));
+    }else{
+      toast("Host Hardware Verified Nominal",`Computer ${report.specs.hostname} passed all health checks`,0);
+    }
+
+    refreshPendingBadges();
+  }catch(err){
+    btn.disabled=false;
+    btn.textContent="▶️ Run Host System Diagnostic Benchmark Test";
+    toast("Host Diagnostic Error",String(err),1);
+  }
+};
 
 /* ========================================================
    SRE AI COPILOT CHATBOT
