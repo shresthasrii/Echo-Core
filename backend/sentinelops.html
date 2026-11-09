@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Echo-Core – Autonomous Incident Response with Persistent Memory</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root{--bg:#06150f;--sf:#0c231a;--sf2:#123226;--tx:#f4f7e8;--mu:#8fae9c;--bd:#1f4a39;--ac:#f6ef6a;--fade:var(--ac);--pg:var(--sf);--bgf:var(--bg);--g1:#38d9e8;--g2:#a78bfa;--g3:#f472b6;--g4:#60a5fa;--r:12px;--fh:Inter,system-ui,sans-serif;--fb:Inter,system-ui,-apple-system,sans-serif;--fm:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;--s1:#ff6b57;--s2:#ffa87a;--s3:#f6ef6a;--s4:#7fb69a;--ok:#7bd88f;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme=geordie]{--bg:#0a0a0a;--sf:#141414;--sf2:#1a1a1c;--tx:#fff;--mu:#a1a1ad;--bd:#2a2a30;--ac:#a855f7;--pri:#7c3aed;--onpri:#fff;--r:12px;--g1:#a855f7;--g2:#d946ef;--g3:#7c3aed;--g4:#2563eb;--s1:#ff4d6d;--s2:#d946ef;--s3:#a855f7;--s4:#2563eb;--ok:#fff}
+:root[data-theme=midnight]{--bg:#0b1220;--sf:#131d33;--sf2:#1b2a47;--tx:#eef3fb;--mu:#a3b3cf;--bd:#2d4067;--ac:#ff1e3c;--s1:#ff5a5f;--s2:#ffa04a;--s3:#ffe27a;--s4:#6cb2ff;--ok:#5ee0a0}
+:root[data-theme=onyx]{--bg:#000;--sf:#0a0a0b;--sf2:#131315;--tx:#eef0f3;--mu:#858b94;--bd:#2a2a2e;--ac:#ff1e3c;--fade:var(--ac);--pg:var(--sf);--bgf:var(--bg);--r:10px;--s1:#ff1e3c;--s2:#ff5f3a;--s3:#d0d5dc;--s4:#7b8490;--ok:#f2f4f7}
+@media(prefers-color-scheme:dark){:root:not([data-theme]){--bg:#0a1220;--sf:#111b2e;--sf2:#18243b;--tx:#e4ecf8;--mu:#8a9bb5;--bd:#26344f;--ac:#4cc3ff;--s1:#ff5a5f;--s2:#ff9248;--s3:#f5c84b;--s4:#5ba8ff;--ok:#3ddc97}}
+:root[data-theme=light]{color-scheme:light;--bg:#eef1f4;--sf:#fff;--sf2:#f3f5f7;--tx:#14202b;--mu:#566676;--bd:#cdd6df;--ac:#0a6c4a;--g1:#0891b2;--g2:#7c3aed;--g3:#db2777;--g4:#2563eb;--s1:#c62828;--s2:#d0561a;--s3:#8f6b00;--s4:#2563b8;--ok:#1b8a52}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 var(--fb);transition:background .4s,color .4s}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+[data-sev="0"]{--c:var(--ok)}[data-sev="1"]{--c:var(--s1)}[data-sev="2"]{--c:var(--s2)}[data-sev="3"]{--c:var(--s3)}[data-sev="4"]{--c:var(--s4)}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding:16px 20px}
+.brand{display:flex;align-items:center;gap:12px}
+h1{font:700 20px/1.1 var(--fh);margin:0;letter-spacing:-.01em}
+.brand small{color:var(--mu)}
+.live{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--bd);border-radius:99px;color:var(--ok);font-size:12px}
+.live i{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blink 1.6s infinite}
+.live.off{color:var(--s1)}.live.off i{animation:none}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:flex;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;background:var(--sf);padding:7px 12px}
+.seg button[aria-pressed=true]{background:var(--ac);color:var(--bg);font-weight:600}
+.btn{border:1px solid var(--bd);background:var(--sf);border-radius:calc(var(--r) - 3px);padding:7px 12px;transition:border-color .2s,background .2s}
+.btn:hover{border-color:var(--ac)}.btn.sm{padding:5px 10px;font-size:13px}
+.btn.pri{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weight:600}
+.btn.demo{background:linear-gradient(135deg,var(--ac),var(--g2));color:#000;border:0;font-weight:700}
+.btn.accent{background:color-mix(in srgb,var(--ac) 20%,transparent);border-color:var(--ac);color:var(--ac);font-weight:600}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+main{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;padding:0 20px 28px}
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{position:relative;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px;display:grid;gap:2px;min-width:0;--k:var(--tx)}
+.kpi small{color:var(--mu)}.kpi .val{font:700 30px/1.1 var(--fh);color:var(--k);transition:color .5s;letter-spacing:-.02em}
+.kpi[data-s=warn]{--k:var(--s3)}.kpi[data-s=bad]{--k:var(--s1)}
+.kpi .sub{color:var(--mu);font-size:12px}
+.kpi svg{width:100%;height:30px;margin-top:6px;color:var(--k);transition:color .5s}
+.kpi polyline{fill:none;stroke:currentColor;stroke-width:1.8;vector-effect:non-scaling-stroke}
+.p{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;min-width:0}
+#pInc{grid-column:span 5}#pGraph{grid-column:span 7}#pLogs{grid-column:1/-1}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
+h2{font:700 16px/1.2 var(--fh);margin:0}
+.cnt{color:var(--mu);font-weight:400;margin-left:6px}
+.chip{border:1px solid var(--bd);background:var(--sf2);border-radius:99px;padding:3px 11px;font-size:13px}
+.chip[aria-pressed=true]{background:var(--ac);color:var(--bg);border-color:var(--ac)}
+#incList{max-height:560px;overflow:auto}
+.inc{margin-top:10px;border:1px solid var(--bd);border-left:5px solid var(--c);border-radius:calc(var(--r) - 4px);background:var(--sf2);transition:border-color .7s,opacity .3s,transform .3s}
+.inc.new{animation:in .4s}.inc.gone{opacity:0;transform:translateX(24px)}
+.inc.bump{animation:bump .9s}
+.ih{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 12px;cursor:pointer}
+.ih:focus-visible{outline:2px solid var(--ac)}
+.bd{background:var(--c);color:#fff;font-weight:700;font-size:12px;padding:3px 8px;border-radius:6px;transition:background .7s;min-width:50px;text-align:center}
+[data-theme=signal] .bd{color:#000}
+.it{display:grid;min-width:0}.it b{overflow-wrap:anywhere}.it small{color:var(--mu);display:flex;flex-wrap:wrap;gap:2px 12px}
+.chev{transition:transform .3s;color:var(--mu)}.open .chev{transform:rotate(180deg)}
+.body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s}.open .body{grid-template-rows:1fr}
+.body>div{overflow:hidden;padding:0 12px}.open .body>div{padding-bottom:12px}
+.cause{margin:0 0 8px}.tl{list-style:none;margin:0 0 10px;padding:0 0 0 12px;border-left:2px solid var(--bd);font-size:13px}
+.tl li{margin:4px 0}.tl time{color:var(--mu);font-family:var(--fm);margin-right:8px}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.empty,.errst{border:1px dashed var(--bd);border-radius:var(--r);padding:26px 16px;text-align:center;display:grid;gap:8px;justify-items:center;margin-top:10px}
+.empty[hidden]{display:none}.empty p,.errst span{margin:0;color:var(--mu);max-width:36ch}
+.errst{display:none;border-color:var(--s1);grid-column:1/-1}.errst b{color:var(--s1)}
+[data-err] .errst{display:grid}[data-err] .kpi{display:none}
+[data-err] #pLogs .real>:not(.errst){display:none!important}
+#kg{width:100%;height:auto;display:block;margin-top:6px;background:radial-gradient(circle at 1px 1px,var(--bd) 1px,transparent 0) 0 0/22px 22px;border-radius:calc(var(--r) - 4px)}
+.node{cursor:grab;outline:none;touch-action:none;transition:opacity .25s}
+.node circle{fill:var(--sf2);stroke:var(--c);stroke-width:3;transition:stroke .7s,fill .2s}
+.node:hover circle,.node:focus-visible circle{fill:var(--bd)}
+.node.sel circle{stroke-width:6}.node[data-sev="1"] circle{animation:ring 1.3s infinite}
+.node text{fill:var(--tx);font-size:12px;text-anchor:middle;pointer-events:none;user-select:none}.node .n{font-weight:700;font-size:13px}
+.edge{stroke:var(--bd);stroke-width:1.6;transition:opacity .25s,stroke .25s}.edge.hi{stroke:var(--ac);stroke-width:3}
+.dim{opacity:.18}
+.info{margin:8px 0 0;color:var(--mu);min-height:21px}.info b{color:var(--tx)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.bar input{flex:1 1 200px;min-width:0;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:calc(var(--r) - 3px);padding:8px 12px;font:inherit}
+.logs{height:300px;overflow:auto;font:12.5px/1.5 var(--fm);border:1px solid var(--bd);border-radius:calc(var(--r) - 4px);background:var(--sf2)}
+.ln{display:flex;flex-wrap:wrap;gap:0 12px;padding:3px 10px;border-bottom:1px solid var(--bd)}.ln time{color:var(--mu)}
+.ln .lv{font-weight:700;width:46px;color:var(--c)}.ln .sv{color:var(--ac)}.ln .ms{flex:1 1 220px;overflow-wrap:anywhere}
+.ln[data-l=ERROR]{--c:var(--s1)}.ln[data-l=WARN]{--c:var(--s3)}.ln[data-l=INFO]{--c:var(--ok)}
+mark{background:var(--ac);color:var(--bg);border-radius:3px;padding:0 2px}
+.sk{display:block;border-radius:8px;margin-top:10px;background:linear-gradient(90deg,var(--sf2) 25%,var(--bd) 50%,var(--sf2) 75%) 0 0/200% 100%;animation:sh 1.2s linear infinite}
+.skel{display:none}.loading .skel{display:block}.loading .real{display:none}
+.loading .kpi>*{visibility:hidden}.loading .kpi::after{content:"";position:absolute;inset:12px;border-radius:8px;background:linear-gradient(90deg,var(--sf2) 25%,var(--bd) 50%,var(--sf2) 75%) 0 0/200% 100%;animation:sh 1.2s linear infinite}
+#toasts{position:fixed;right:0;bottom:0;display:grid;gap:8px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:min(420px,100%);z-index:50;pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:10px;background:var(--sf);border:1px solid var(--bd);border-left:5px solid var(--c);border-radius:var(--r);padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.28);animation:in .35s;transition:opacity .3s,transform .3s}
+.toast div{flex:1;display:grid;min-width:0}.toast small{color:var(--mu)}.toast.out{opacity:0;transform:translateX(30px)}
+dialog{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:var(--r);padding:20px;width:min(580px,calc(100vw - 24px))}
+dialog::backdrop{background:rgba(0,0,0,.65);backdrop-filter:blur(3px)}
+dialog h3{margin:0 0 10px;font:700 17px var(--fh)}
+code{display:block;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:10px;font-family:var(--fm);font-size:13px;overflow-wrap:anywhere;margin:10px 0}
+dialog label{display:block;margin:10px 0 4px}
+dialog input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font:inherit}
+.dact{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.warn{color:var(--s2);margin:0}
+body{background:var(--bg)}
+h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;font-size:22px}
+.p,.kpi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
+.p{padding:20px}.kpi{--k:var(--tx);padding:16px;gap:4px}
+.kpi .val{text-shadow:none;font-size:32px}.kpi .name{font-weight:600;font-size:14px;color:var(--tx)}
+.kpi .hint{color:var(--mu);font-size:12.5px}.kpi .sub{font-weight:600;color:var(--k)}.kpi[data-s=""] .sub{color:var(--ok)}
+.live,.btn:hover,.btn.pri,.seg button[aria-pressed=true]{box-shadow:none}
+.btn.pri,.seg button[aria-pressed=true]{background:var(--ac);color:var(--bg)}
+#kg{background:var(--sf2);border:1px solid var(--bd)}
+.bd{min-width:74px;font-size:12.5px}[data-theme=light] .bd{color:#fff}
+.sub2{margin:2px 0 10px;color:var(--mu);font-size:13px;max-width:62ch}
+.lbl{margin:12px 0 4px;font-weight:600;font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--mu);margin:6px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.status{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;justify-content:space-between;background:var(--sf);border:1px solid var(--bd);border-left:8px solid var(--c);border-radius:var(--r);padding:16px 20px;transition:border-color .6s}
+.status h2{font-size:20px}.status p{margin:2px 0 0;color:var(--mu);max-width:60ch}
+.donut{width:88px;height:88px;flex:none}.dt,.ds{fill:none;stroke-width:9}.dt{stroke:var(--bd)}
+.ds{stroke:var(--c);stroke-dasharray:0 214;transform:rotate(-90deg);transform-origin:44px 44px;transition:stroke-dasharray .7s,stroke-dashoffset .7s}
+.donut text{fill:var(--tx);font:700 24px Inter,system-ui,sans-serif;text-anchor:middle}
+.sum{display:flex;align-items:center;gap:18px}.legend.col{flex-direction:column;gap:4px;margin:0}.legend b{color:var(--tx);margin-left:6px}
+.kpis{gap:0;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+.kpis .kpi{background:transparent;border:0;border-right:1px solid var(--bd);border-radius:0;padding:18px 22px}
+.kpis .kpi:nth-child(4){border-right:0}
+.kpi .val{font-weight:300;font-size:38px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.kpi svg{height:38px}.kpi .sa{fill:currentColor;opacity:.14}
+.kpi .sl{fill:none;stroke:currentColor;stroke-width:2;vector-effect:non-scaling-stroke}
+#incList{padding:4px 4px 0 8px}
+.inc{background:transparent;border:0;border-left:2px solid var(--bd);border-radius:0;margin:0 0 2px 6px;padding-left:18px;position:relative}
+.inc.open{border-left-color:var(--c)}
+.inc::before{content:"";position:absolute;left:-8px;top:14px;width:14px;height:14px;border-radius:50%;background:var(--c);border:3px solid var(--sf);transition:background .7s}
+.inc[data-sev="1"]::before{animation:ping 1.6s infinite}
+.ih{padding:10px 0}.body>div{padding:0}.open .body>div{padding-bottom:12px}
+.ih .bd{background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);min-width:0;padding:2px 9px;border-radius:99px}
+.edge{stroke-dasharray:3 7;animation:flow 1.6s linear infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--c)}100%{box-shadow:0 0 0 12px transparent}}
+@keyframes flow{to{stroke-dashoffset:-20}}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
+
+/* ECHO-CORE CUSTOM STYLES */
+.banner-offline{background:rgba(255,107,87,0.18);border:1px solid var(--s1);border-radius:var(--r);padding:10px 16px;margin:0 20px 12px;color:var(--s1);display:flex;align-items:center;justify-content:space-between;font-weight:500}
+.banner-offline.ok{background:rgba(123,216,143,0.15);border-color:var(--ok);color:var(--ok)}
+.brief-box{background:var(--sf);border:1px solid var(--bd);border-radius:calc(var(--r) - 2px);padding:14px;margin:10px 0}
+.brief-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.brief-toggle{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;font-size:12px}
+.brief-toggle button{border:0;background:var(--sf2);padding:4px 9px;color:var(--mu)}
+.brief-toggle button.active{background:var(--ac);color:var(--bg);font-weight:700}
+.warn-failed{background:rgba(255,90,95,0.18);border-left:4px solid var(--s1);border-radius:4px;padding:10px 12px;margin:8px 0;color:#ff9b9e;font-size:13px}
+.warn-failed b{color:var(--s1);display:block;margin-bottom:3px}
+.fix-box{background:rgba(123,216,143,0.12);border-left:4px solid var(--ok);border-radius:4px;padding:10px 12px;margin:8px 0;color:var(--tx);font-size:13px}
+.fix-box b{color:var(--ok);display:block;margin-bottom:3px}
+.mem-view{margin-top:10px;border-top:1px dashed var(--bd);padding-top:8px}
+.mem-pill{display:inline-block;background:color-mix(in srgb,var(--ac) 14%,transparent);border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);border-radius:4px;padding:3px 8px;font-size:11px;font-family:var(--fm);color:var(--ac);margin:2px 4px 2px 0}
+.dedup-badge{background:var(--s3);color:#000;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:6px}
+.cascade-badge{background:var(--s1);color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:6px}
+
+/* COMPARISON MODAL */
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.comp-col{border:1px solid var(--bd);border-radius:8px;padding:12px;background:var(--sf2)}
+.comp-col.mem{border-color:var(--ok);background:rgba(123,216,143,0.06)}
+.comp-col.gen{border-color:var(--s1);background:rgba(255,107,87,0.06)}
+.comp-badge{font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.comp-badge.danger{background:var(--s1);color:#fff}
+.comp-badge.safe{background:var(--ok);color:#000}
+.delta-box{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:10px;margin-top:10px;font-size:13px}
+.delta-box b{color:var(--ac)}
+.ap-item{border-bottom:1px solid var(--bd);padding:8px 0}
+.ap-item:last-child{border-bottom:0}
+
+/* SRE AI COPILOT & CHAT WIDGET */
+#chatWidget{position:fixed;bottom:20px;right:20px;z-index:90}
+#chatToggleBtn{
+  display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--ac),var(--g2));
+  color:#000;border:0;border-radius:99px;padding:10px 18px;font-weight:700;font-size:13px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);cursor:pointer;transition:transform .2s,box-shadow .2s;
+}
+#chatToggleBtn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,0.45)}
+#chatToggleBadge{background:#ff4d6d;color:#fff;border-radius:99px;padding:2px 7px;font-size:11px;font-weight:800;animation:pulse 1.8s infinite;}
+@keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+#chatPanel{
+  display:none;position:fixed;bottom:76px;right:20px;width:min(450px,calc(100vw - 32px));
+  height:620px;max-height:calc(100vh - 96px);background:var(--sf);border:1px solid var(--bd);
+  border-radius:var(--r);box-shadow:0 16px 48px rgba(0,0,0,0.6);flex-direction:column;
+  overflow:hidden;z-index:95;animation:in .25s;
+}
+#chatPanel.open{display:flex}
+.chat-head{
+  display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+  background:var(--sf2);border-bottom:1px solid var(--bd);
+}
+.chat-chips{
+  display:flex;gap:6px;padding:8px 12px;background:var(--sf);overflow-x:auto;
+  border-bottom:1px solid var(--bd);scrollbar-width:none;
+}
+.chat-chip{
+  border:1px solid var(--bd);background:var(--sf2);color:var(--mu);border-radius:99px;
+  padding:4px 10px;font-size:11px;white-space:nowrap;cursor:pointer;transition:border-color .2s,color .2s;
+}
+.chat-chip:hover{border-color:var(--ac);color:var(--tx)}
+.chat-msgs{
+  flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;
+}
+.chat-msg{
+  max-width:92%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.45;
+}
+.chat-msg.user{
+  align-self:flex-end;background:var(--ac);color:var(--bg);font-weight:500;
+  border-bottom-right-radius:2px;
+}
+.chat-msg.assistant{
+  align-self:flex-start;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);
+  border-bottom-left-radius:2px;
+}
+.chat-msg.assistant p{margin:4px 0}
+.chat-msg.assistant ul,.chat-msg.assistant ol{margin:4px 0;padding-left:18px}
+.chat-msg.assistant code{
+  background:rgba(0,0,0,0.3);padding:2px 5px;border-radius:4px;font-size:12px;font-family:var(--fm);
+}
+.chat-foot{
+  padding:10px 14px;background:var(--sf2);border-top:1px solid var(--bd);display:flex;gap:8px;
+}
+.chat-foot input{
+  flex:1;background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:8px 12px;
+  color:var(--tx);font:inherit;outline:none;
+}
+.chat-foot input:focus{border-color:var(--ac)}
+
+/* APPROVAL GATE CARD */
+.sug-card{
+  background:rgba(123,216,143,0.08);border:1px solid var(--ok);border-left:5px solid var(--ok);
+  border-radius:8px;padding:12px;margin:8px 0;display:flex;flex-direction:column;gap:6px;
+}
+.sug-head{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px}
+.sug-risk{font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.sug-risk.LOW{background:rgba(123,216,143,0.25);color:var(--ok)}
+.sug-risk.MODERATE{background:rgba(246,239,106,0.25);color:var(--s3)}
+.sug-risk.HIGH{background:rgba(255,168,122,0.25);color:var(--s2)}
+.sug-risk.CRITICAL{background:rgba(255,107,87,0.25);color:var(--s1)}
+.sug-cmd{background:rgba(0,0,0,0.45);border:1px solid var(--bd);padding:6px 10px;border-radius:6px;font-family:var(--fm);font-size:12px;margin:4px 0;overflow-wrap:anywhere}
+.sug-acts{display:flex;gap:8px;margin-top:6px;align-items:center}
+.sug-btn-allow{background:var(--ok);color:#000;border:0;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.sug-btn-allow:hover{opacity:0.9}
+.sug-btn-reject{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.sug-btn-reject:hover{color:var(--s1);border-color:var(--s1)}
+.sug-status-badge{font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px}
+.sug-status-badge.approved{background:rgba(123,216,143,0.2);color:var(--ok);border:1px solid var(--ok)}
+.sug-status-badge.rejected{background:rgba(255,107,87,0.2);color:var(--s1);border:1px solid var(--s1)}
+
+/* DATABASE & AUDIT TABLE */
+.audit-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.audit-table th,.audit-table td{padding:8px 10px;border-bottom:1px solid var(--bd);text-align:left}
+.audit-table th{color:var(--mu);font-weight:600;background:var(--sf2)}
+.db-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.db-card{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center}
+.db-card b{font-size:22px;display:block;color:var(--ac);font-family:var(--fh)}
+.db-card small{color:var(--mu);font-size:11px}
+</style></head>
+<body class="loading">
+<header>
+<div class="brand"><svg class="logo" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><path d="M16 2 28 9v14l-12 7L4 23V9z" fill="none" stroke="var(--ac)" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 9.5 22 13v6l-6 3.5L10 19v-6z" fill="var(--ac)"/></svg><div><h1>Echo-Core</h1><small>Autonomous SRE Agent with Hindsight Persistent Memory</small></div><span class="live" id="live"><i></i><span>Live</span></span></div>
+<div class="tools">
+<div class="seg" role="group" aria-label="Visual direction"><button data-t="geordie">Geordie</button><button data-t="forest">Forest</button><button data-t="midnight">Midnight</button><button data-t="onyx">Onyx</button><button data-t="light">Light</button></div>
+<button class="btn demo" id="bDemo1" title="Demo 1: Novel incident (Cold Start / Generic Advice)">Demo 1 (Cold Start)</button>
+<button class="btn demo" id="bDemo5" title="Demo 5: Similar past incident recall">Demo 5 (Pattern Match)</button>
+<button class="btn demo" id="bDemo20" title="Demo 20: Star Feature - Critical Warning on Failed Fix">Demo 20 (Failed Fix Warning)</button>
+<button class="btn demo" id="bCascade" title="Demo Cascade: Multi-service outage cascade">Cascade Outage</button>
+<button class="btn demo" id="bHostDiag" title="Inspect real hardware and run diagnostic benchmark test on this computer" style="background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff">🖥️ Host Scan</button>
+<button class="btn pri" id="bApprovals" title="View pending AI mitigation actions requiring approval">🛡️ Approvals <span id="appBadge" class="dedup-badge" style="display:none;background:var(--ok);color:#000">0</span></button>
+<button class="btn accent" id="bDbAudit" title="Inspect SQLite Database records and Audit Trail">🗄️ Database & Audit</button>
+<button class="btn accent" id="bMemExp" title="Search and explore Hindsight memory bank">🧠 Memory</button>
+<button class="btn accent" id="bAntiPat" title="View team anti-patterns catalog">🚨 Anti-Patterns</button>
+<button class="btn" id="bInc" title="Simulate a new incident">Simulate Random</button>
+<button class="btn" id="bClr" title="Clear open incidents">Clear Queue</button>
+</div></header>
+
+<div id="hsBanner" class="banner-offline ok" style="display:none;">
+  <span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code> (40+ incidents retained). Agent is memory-informed.</span>
+  <span id="hsStatus">Online</span>
+</div>
+
+<main>
+<section class="status" id="status" data-sev="0" aria-live="polite"><div><h2 id="stT"></h2><p id="stD"></p></div><div class="sum"><svg class="donut" viewBox="0 0 88 88" role="img" aria-label="Open incidents by severity"><circle class="dt" cx="44" cy="44" r="34"/><circle id="d1" class="ds" data-sev="1" cx="44" cy="44" r="34"/><circle id="d2" class="ds" data-sev="2" cx="44" cy="44" r="34"/><circle id="d3" class="ds" data-sev="3" cx="44" cy="44" r="34"/><circle id="d4" class="ds" data-sev="4" cx="44" cy="44" r="34"/><text id="dN" x="44" y="52"></text></svg><div class="legend col" id="stLg" aria-label="Open incidents by severity"></div></div></section>
+<section class="kpis" id="kpis" aria-label="Live metrics"></section>
+<section class="p" id="pInc"><div class="ph"><h2>Active Incidents<span class="cnt" id="cInc"></span></h2><button class="chip" id="fClr" hidden></button></div>
+<p class="sub2">Live alerts. Expand to see Echo-Core's Agent Briefing, Memory ON/OFF toggle, and Failed Fix Warnings.</p>
+<div class="real"><div id="incList"></div><div class="empty" id="incEmpty" hidden></div></div><div class="skel"></div></section>
+<section class="p" id="pGraph"><div class="ph"><h2>Service Knowledge Graph</h2><button class="btn sm" id="gRst">Reset Layout</button></div>
+<p class="sub2">Real-time dependency topology. The ring colour shows health. Click a service to filter its incidents.</p>
+<div class="real"><div class="legend"></div><svg id="kg" viewBox="0 0 600 340" role="group" aria-label="Service dependency graph"></svg><p class="info" id="kgInfo"></p></div><div class="skel"></div></section>
+<section class="p" id="pLogs"><div class="ph"><h2>Live Log Stream<span class="cnt" id="lCnt"></span></h2></div>
+<p class="sub2">System events streamed via Server-Sent Events (SSE). Search by service or keyword.</p>
+<div class="real"><div class="bar"><input id="q" type="search" placeholder="Search service or message" aria-label="Search logs"><span id="chips"></span><button class="btn sm" id="bPause" aria-pressed="false">Pause</button></div>
+<div class="logs" id="logs" role="log"></div>
+<div class="empty" id="logEmpty" hidden><b>No matching log lines</b><p>Nothing matches this search and level.</p><button class="btn sm" id="lClr">Clear search</button></div></div><div class="skel"></div></section>
+</main>
+<div id="toasts" aria-live="polite"></div>
+
+<!-- FLOATING SRE AI COPILOT WIDGET -->
+<div id="chatWidget">
+  <button id="chatToggleBtn">
+    <span>🤖 SRE Copilot</span>
+    <span id="chatToggleBadge" style="display:none">0</span>
+  </button>
+  <div id="chatPanel">
+    <div class="chat-head">
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--ac)"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.38-1 1.72V7h2a5 5 0 0 1 5 5v1h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1v1a5 5 0 0 1-5 5h-2v1.28c.6.34 1 .98 1 1.72a2 2 0 1 1-4 0c0-.74.4-1.38 1-1.72V22h-2a5 5 0 0 1-5-5v-1H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h1v-1a5 5 0 0 1 5-5h2V5.72c-.6-.34-1-.98-1-1.72a2 2 0 0 1 2-2Z"/></svg>
+        <div>
+          <b style="font-size:14px">Echo-Core SRE Assistant</b><br>
+          <small style="color:var(--mu);font-size:11px">Tri-Model Fallback • Approval Gate</small>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm" id="chatClearBtn" title="Clear chat history" style="font-size:11px;padding:2px 7px">🧹</button>
+        <button class="btn sm" id="chatCloseBtn" style="font-size:11px;padding:2px 7px">✕</button>
+      </div>
+    </div>
+    <div class="chat-chips">
+      <button class="chat-chip" data-q="Scan my host computer hardware and report any active incidents">🖥️ Scan My Computer</button>
+      <button class="chat-chip" data-q="What should I do right now? Systems are overloading!">🔥 Overload Help</button>
+      <button class="chat-chip" data-q="Triage cascading outage root cause and suggest mitigation">💥 Triage Cascade</button>
+      <button class="chat-chip" data-q="Propose a safe mitigation for active incidents">💡 Suggest Mitigation</button>
+      <button class="chat-chip" data-q="Is it safe to restart payments deployment pods?">⚠️ Check Anti-Pattern</button>
+    </div>
+    <div class="chat-msgs" id="chatMsgs">
+      <div class="chat-msg assistant">
+        <p>👋 <b>Hello SRE!</b> I am Echo-Core's interactive on-call assistant.</p>
+        <p>I monitor real-time cluster telemetry, evaluate historical runbooks, and formulate mitigation plans. All suggested commands are gated by the <b>Approval Gate</b> — I will <i>never</i> execute until you review and click <b>Allow</b>.</p>
+      </div>
+    </div>
+    <form class="chat-foot" id="chatForm">
+      <input id="chatIn" placeholder="Ask on-call assistant (e.g. 'What should I do for payments?')..." autocomplete="off">
+      <button class="btn pri sm" type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<!-- APPROVALS QUEUE MODAL -->
+<dialog id="appDlg" style="width:min(700px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">🛡️ AI Mitigation Approvals Queue</h3>
+    <button class="btn sm" id="appRefresh">Refresh</button>
+  </div>
+  <p style="margin:0 0 12px;color:var(--mu);font-size:13px">
+    Human-in-the-Loop Safety Gate: AI recommends proactive mitigations but halts execution until authorized by an engineer.
+  </p>
+  <div id="appList" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+    <p style="color:var(--mu)">Loading pending suggestions...</p>
+  </div>
+  <div class="dact"><button class="btn" id="appClose">Close</button></div>
+</dialog>
+
+<!-- SQLITE DATABASE & AUDIT TRAIL MODAL -->
+<dialog id="dbDlg" style="width:min(820px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">🗄️ SQLite Database Persistence & Audit Trail</h3>
+    <button class="btn sm" id="dbRefresh">Refresh</button>
+  </div>
+  <div class="db-grid" id="dbStatsGrid">
+    <div class="db-card"><b id="dbCountInc">–</b><small>Total Incidents</small></div>
+    <div class="db-card"><b id="dbCountAlerts">–</b><small>Alerts Persisted</small></div>
+    <div class="db-card"><b id="dbCountChat">–</b><small>Chat Messages</small></div>
+    <div class="db-card"><b id="dbCountAudit">–</b><small>Audit Events</small></div>
+  </div>
+  <div style="font-size:12px;color:var(--mu);margin-bottom:8px">
+    Database Location: <code style="display:inline;padding:2px 6px" id="dbLocationText">echo_core.db</code>
+  </div>
+  <h4 style="margin:12px 0 6px">Recent Operator & Agent Audit Trail:</h4>
+  <div style="max-height:300px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+    <table class="audit-table">
+      <thead><tr><th>Time</th><th>Action</th><th>Target</th><th>Actor</th><th>Details</th></tr></thead>
+      <tbody id="auditTableBody"><tr><td colspan="5" style="color:var(--mu);text-align:center">Loading audit log...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="dact"><button class="btn" id="dbClose">Close</button></div>
+</dialog>
+
+<!-- HOST SYSTEM HARDWARE & DIAGNOSTIC MODAL -->
+<dialog id="hostDlg" style="width:min(780px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:24px">🖥️</span>
+      <div>
+        <h3 style="margin:0">Host Computer Hardware & Incident Diagnostics</h3>
+        <small style="color:var(--mu)" id="hostSpecsLine">Reading local machine hardware...</small>
+      </div>
+    </div>
+    <button class="btn sm" id="hostRefreshBtn">Refresh Live</button>
+  </div>
+  <p style="margin:0 0 12px;color:var(--mu);font-size:13px">
+    Reads the actual computer where Echo-Core is running (CPU, RAM, Disk, active processes) and detects real host-level incidents.
+  </p>
+  <div class="db-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+    <div class="db-card">
+      <small>Live CPU Utilization</small>
+      <b id="hostCpuVal" style="color:var(--g1)">–%</b>
+      <div style="height:6px;background:var(--bd);border-radius:3px;margin-top:6px;overflow:hidden">
+        <div id="hostCpuBar" style="height:100%;width:0%;background:var(--g1);transition:width .4s"></div>
+      </div>
+    </div>
+    <div class="db-card">
+      <small>Live RAM Utilization</small>
+      <b id="hostRamVal" style="color:var(--s2)">–%</b>
+      <div style="height:6px;background:var(--bd);border-radius:3px;margin-top:6px;overflow:hidden">
+        <div id="hostRamBar" style="height:100%;width:0%;background:var(--s2);transition:width .4s"></div>
+      </div>
+    </div>
+    <div class="db-card">
+      <small>Primary Volume Disk</small>
+      <b id="hostDiskVal" style="color:var(--ok)">–%</b>
+      <div style="height:6px;background:var(--bd);border-radius:3px;margin-top:6px;overflow:hidden">
+        <div id="hostDiskBar" style="height:100%;width:0%;background:var(--ok);transition:width .4s"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;margin:14px 0">
+    <button class="btn demo" id="bRunHostTest" style="flex:1;padding:11px 18px;font-size:14px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff">
+      ▶️ Run Host System Diagnostic Benchmark Test
+    </button>
+  </div>
+
+  <div id="hostResults" style="display:none;margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h4 style="margin:0">Diagnostic Benchmark Results:</h4>
+      <span id="hostHealthBadge" class="comp-badge safe" style="font-size:12px">HEALTHY</span>
+    </div>
+    <div id="hostChecksList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <h4 style="margin:16px 0 6px">Top Resource-Consuming Host Processes on this Computer:</h4>
+  <div style="max-height:160px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+    <table class="audit-table">
+      <thead><tr><th>Process Name</th><th>RAM Usage (%)</th><th>CPU Activity (%)</th></tr></thead>
+      <tbody id="hostProcsBody"><tr><td colspan="3" style="text-align:center;color:var(--mu)">Loading processes...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="dact"><button class="btn" id="hostClose">Close</button></div>
+</dialog>
+
+<!-- COMMAND CONFIRMATION DIALOG -->
+<dialog id="dlg"><h3 id="dT"></h3><p id="dD" style="margin:0;color:var(--mu)"></p><code id="dC"></code>
+<div id="dSafetyWarning" class="warn-failed" style="display:none;"></div>
+<p class="warn" id="dW">⚠️ This affects live production traffic. It cannot be undone from here.</p>
+<div id="dTy"><label for="dIn">Type the service name (<b id="dTargetSvc"></b>) to confirm:</label><input id="dIn" autocomplete="off" placeholder="service name"></div>
+<div class="dact"><button class="btn" id="dNo">Cancel</button><button class="btn pri" id="dGo">Run command</button></div></dialog>
+
+<!-- RESOLUTION & FEEDBACK DIALOG -->
+<dialog id="resDlg"><h3>Resolve Incident & Retain in Memory</h3>
+<p style="margin:0 0 10px;color:var(--mu)">Marking resolved feeds the outcome and engineer feedback back into Hindsight memory so Echo-Core continuously learns.</p>
+<label for="resNotes">Engineer Resolution Notes:</label>
+<input id="resNotes" value="Mitigation confirmed. Metrics returned to baseline.">
+<div style="margin:12px 0 6px">
+  <label><input type="checkbox" id="resWorked" checked> Agent suggestion was effective</label>
+</div>
+<div class="dact"><button class="btn" id="resNo">Cancel</button><button class="btn pri" id="resGo">Resolve & Retain in Memory</button></div></dialog>
+
+<!-- SIDE-BY-SIDE MEMORY VS GENERIC COMPARISON MODAL -->
+<dialog id="compDlg" style="width:min(720px,calc(100vw - 24px))">
+  <h3 id="compTitle">⚖️ Memory vs Generic AI Comparison</h3>
+  <p style="margin:0;color:var(--mu)">Comparing Echo-Core's Hindsight persistent memory against naive zero-memory LLM advice.</p>
+  <div class="comp-grid">
+    <div class="comp-col gen">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b>Generic AI (Memory OFF)</b>
+        <span class="comp-badge danger">High Risk</span>
+      </div>
+      <p id="compGenCause" style="font-size:12px;color:var(--tx);margin:4px 0"></p>
+      <div style="font-size:12px;margin-top:6px"><b>Naive Recommendation:</b></div>
+      <code id="compGenCmd" style="font-size:11px;padding:6px;margin:4px 0"></code>
+      <div style="font-size:11px;color:var(--s1);margin-top:4px">⚠️ <b>Fatal Flaw:</b> <span id="compGenFlaw"></span></div>
+    </div>
+    <div class="comp-col mem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b>Echo-Core (Memory ON)</b>
+        <span class="comp-badge safe">Proven Fix</span>
+      </div>
+      <p id="compMemCause" style="font-size:12px;color:var(--tx);margin:4px 0"></p>
+      <div style="font-size:12px;margin-top:6px"><b>Memory-Backed Mitigation:</b></div>
+      <code id="compMemCmd" style="font-size:11px;padding:6px;margin:4px 0"></code>
+      <div style="font-size:11px;color:var(--ok);margin-top:4px">🛡️ <b>Failed Fix Warning:</b> <span id="compMemWarn"></span></div>
+    </div>
+  </div>
+  <div class="delta-box" id="compDeltaBox"></div>
+  <div class="dact"><button class="btn" id="compClose">Close</button></div>
+</dialog>
+
+<!-- POST-MORTEM REPORT DIALOG -->
+<dialog id="pmDlg" style="width:min(740px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">📄 Incident Post-Mortem Report</h3>
+    <button class="btn sm" id="pmCopy">Copy Markdown</button>
+  </div>
+  <pre id="pmContent" style="max-height:420px;overflow:auto;background:var(--sf2);padding:14px;border-radius:8px;font-family:var(--fm);font-size:12px;white-space:pre-wrap;border:1px solid var(--bd);margin:8px 0"></pre>
+  <div class="dact"><button class="btn" id="pmClose">Close</button></div>
+</dialog>
+
+<!-- HINDSIGHT MEMORY EXPLORER MODAL -->
+<dialog id="memExpDlg" style="width:min(680px,calc(100vw - 24px))">
+  <h3>🧠 Hindsight Memory Explorer (Bank: acme-sre)</h3>
+  <p style="margin:0;color:var(--mu)">Search memories retained in Hindsight using hybrid BM25 + vector search.</p>
+  <div style="display:flex;gap:8px;margin:12px 0">
+    <input id="memExpQuery" placeholder="Search keywords (e.g. connection pool, eviction, timeout)..." style="flex:1">
+    <button class="btn pri" id="memExpSearchBtn">Search</button>
+  </div>
+  <div id="memExpResults" style="max-height:360px;overflow:auto;font-size:13px">
+    <p style="color:var(--mu)">Enter a search term above to inspect Hindsight memory facts.</p>
+  </div>
+  <div class="dact"><button class="btn" id="memExpClose">Close</button></div>
+</dialog>
+
+<!-- ANTI-PATTERNS CATALOG MODAL -->
+<dialog id="antiPatDlg" style="width:min(680px,calc(100vw - 24px))">
+  <h3>🚨 Team Anti-Patterns Catalog</h3>
+  <p style="margin:0;color:var(--mu)">Documented historical mistakes and failed fixes across Acme production infrastructure.</p>
+  <div id="antiPatList" style="max-height:380px;overflow:auto;margin-top:12px"></div>
+  <div class="dact"><button class="btn" id="antiPatClose">Close</button></div>
+</dialog>
+
+<script>
+const $=(s,e=document)=>e.querySelector(s),rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0],clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=t=>new Date(t).toTimeString().slice(0,8),ago=t=>{const s=(Date.now()-t)/1e3|0;return s<60?s+"s ago":(s/60|0)+"m ago"};
+const SEVN={1:"Critical",2:"High",3:"Medium",4:"Low"},st={q:"",lv:"ALL",sel:null,paused:false,hover:false,memModes:{}};
+const N0={"api-gateway":[300,40],auth:[110,100],orders:[300,130],search:[500,100],payments:[160,220],"ml-ranker":[520,220],postgres:[250,300],redis:[410,290],queue:[50,300]};
+let N=JSON.parse(JSON.stringify(N0));
+const E=[["api-gateway","auth"],["api-gateway","orders"],["api-gateway","search"],["orders","payments"],["orders","postgres"],["orders","redis"],["payments","postgres"],["payments","queue"],["search","ml-ranker"],["search","redis"],["auth","redis"]];
+const CMDS=[
+  {k:"restart",label:"Restart service",risk:1,cmd:s=>`kubectl rollout restart deploy/${s}`},
+  {k:"scale",label:"Scale capacity",risk:0,cmd:s=>`kubectl scale deploy/${s} --replicas=6`},
+  {k:"rollback",label:"Undo last deploy",risk:1,cmd:s=>`kubectl rollout undo deploy/${s}`},
+  {k:"resolve",label:"Resolve & Retain",risk:0,cmd:s=>`ops incident resolve --service ${s}`}
+];
+let incs=[];
+const DESC={
+  restart:"Restarts deployment pods. (WARNING: Can cause connection storms if connection pool is bottleneck!)",
+  rollback:"Rolls back deployment to previous replica revision.",
+  scale:"Adds replica capacity to distribute request load.",
+  resolve:"Closes incident and retains full diagnosis & resolution into Hindsight memory."
+};
+
+const loading=()=>document.body.classList.contains("loading");
+$("#pInc .skel").innerHTML='<i class="sk" style="height:58px"></i>'.repeat(3);
+$("#pGraph .skel").innerHTML='<i class="sk" style="height:300px"></i>';
+$("#pLogs .skel").innerHTML='<i class="sk" style="height:16px"></i>'.repeat(9);
+
+["ALL","ERROR","WARN","INFO"].forEach(l=>{const b=document.createElement("button");b.className="chip";b.textContent=l[0]+l.slice(1).toLowerCase();b.dataset.l=l;b.setAttribute("aria-pressed",l==="ALL");b.onclick=()=>{st.lv=l;document.querySelectorAll("#chips .chip").forEach(c=>c.setAttribute("aria-pressed",c===b));renderLogs()};$("#chips").append(b)});
+
+/* metrics */
+const K=[["rps","Traffic","Requests handled each second"],["p95","Response time","Slowest 1 in 20 requests latency"],["err","Failed requests","Percentage of requests failing"],["inc","Open incidents","Problems requiring on-call attention"]],M={rps:4200,p95:150,err:.3},H={rps:[],p95:[],err:[],inc:[]};
+K.forEach(([k,l,hn])=>{const d=document.createElement("div");d.className="kpi";d.id="k-"+k;d.innerHTML=`<small class="name">${l}</small><b class="val">–</b><span class="sub"></span><small class="hint">${hn}</small><svg viewBox="0 0 100 28" preserveAspectRatio="none"><path class="sa"/><path class="sl"/></svg>`;$("#kpis").append(d)});
+
+function spark(k){const h=H[k];if(!h||h.length<2)return"M0,14 L100,14";const mn=Math.min(...h),mx=Math.max(...h),p=h.map((v,i)=>[i*100/(h.length-1||1),26-(v-mn)/(mx-mn||1)*22]);let d=`M${p[0][0]},${p[0][1].toFixed(1)}`;for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];d+=`Q${a[0].toFixed(1)},${a[1].toFixed(1)} ${((a[0]+b[0])/2).toFixed(1)},${((a[1]+b[1])/2).toFixed(1)}`}return d+`L100,${p[p.length-1][1].toFixed(1)}`}
+const F={rps:x=>Math.round(x).toLocaleString(),p95:x=>Math.round(x)+" ms",err:x=>x.toFixed(2)+"%",inc:x=>Math.round(x)};
+function tw(el,to,f){const from=el._v===undefined?to:el._v,t0=performance.now();el._v=to;cancelAnimationFrame(el._r);const s=n=>{const p=Math.min(1,(n-t0)/700),e=1-Math.pow(1-p,3);el.textContent=f(from+(to-from)*e);if(p<1)el._r=requestAnimationFrame(s)};el._r=requestAnimationFrame(s)}
+
+function renderK(){
+  const crit=incs.filter(i=>i.sev===1&&i.status!=="resolved").length;
+  K.forEach(([k])=>{
+    const d=$("#k-"+k);tw($(".val",d),{rps:M.rps,p95:M.p95,err:M.err,inc:incs.filter(i=>i.status!=="resolved").length}[k],F[k]);
+    const q=spark(k);$(".sl",d).setAttribute("d",q);$(".sa",d).setAttribute("d",q+"L100 28L0 28Z");
+    const h=H[k];if(h&&h.length>1){
+      const tr=(h[h.length-1]-h[0])/(h[0]||1)*100;
+      $(".sub",d).textContent={rps:(tr>=0?"Up ":"Down ")+Math.abs(tr).toFixed(1)+"% this minute",p95:M.p95>300?"Critical latency":M.p95>220?"Elevated":"Normal",err:M.err>2?"High failure rate":M.err>1?"Warning":"Normal",inc:crit?crit+" critical":incs.filter(i=>i.status!=="resolved").length?"Attention required":"All normal"}[k];
+    }
+  });
+  const bad=M.p95>300||M.err>2||incs.some(i=>i.sev===1&&i.status!=="resolved"),warn=M.p95>220||M.err>1||incs.filter(i=>i.status!=="resolved").length>3;
+  ["p95","err"].forEach(k=>$("#k-"+k).dataset.s=(k==="p95"?M.p95>300:M.err>2)?"bad":(k==="p95"?M.p95>220:M.err>1)?"warn":"");
+  $("#k-inc").dataset.s=bad?"bad":warn?"warn":"";renderStatus();
+}
+
+function renderStatus(){
+  const active=incs.filter(i=>i.status!=="resolved"),n=active.length,w=n?Math.min(...active.map(i=>i.sev)):0,c=active.filter(i=>i.sev===1).length;
+  $("#status").dataset.sev=w;const C=213.63;let off=0;
+  [1,2,3,4].forEach(s=>{const k=active.filter(i=>i.sev===s).length,len=n?k/n*C:0,e=$("#d"+s);e.style.strokeDasharray=len+" "+C;e.style.strokeDashoffset=-off;off+=len});
+  $("#dN").textContent=n;
+  $("#stLg").innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"]].map(([s,nm])=>`<span data-sev="${s}"><i></i>${nm}<b>${active.filter(i=>i.sev===s).length}</b></span>`).join("");
+  $("#stT").textContent=n?`${n} open incident${n===1?"":"s"}${w<=2?" requiring attention":""}`:"All systems operational";
+  $("#stD").textContent=n?(c?`${c} critical incident active. Echo-Core has synthesized memory briefings for each below.`:"Click an incident to inspect the memory-informed briefing vs generic advice."):"No active incidents. Live telemetry, alerts, and chat stream continuously with SQLite persistence.";
+}
+
+function toast(t,b,sev,act){
+  const e=document.createElement("div");e.className="toast";e.dataset.sev=sev||0;
+  e.innerHTML=`<span class="bd">${sev?SEVN[sev]:"OK"}</span><div><b>${esc(t)}</b><small>${esc(b)}</small></div>`;
+  if(act){const x=document.createElement("button");x.className="btn sm";x.textContent="View";x.onclick=()=>{act();e.remove()};e.append(x)}
+  const c=$("#toasts");c.prepend(e);while(c.children.length>4)c.lastChild.remove();
+  setTimeout(()=>{e.classList.add("out");setTimeout(()=>e.remove(),300)},6500);
+}
+
+function elInc(i){
+  const e=document.createElement("article");e.className="inc new";e.dataset.id=i.id;
+  e.innerHTML=`
+    <button class="ih" aria-expanded="false">
+      <span class="bd"></span>
+      <span class="it"><b></b><small><span class="id"></span><span class="sv"></span><span class="ag"></span><span class="dd"></span><span class="cd"></span></small></span>
+      <svg class="chev" viewBox="0 0 12 12" width="14" height="14"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+    <div class="body"><div>
+      <!-- AGENT BRIEFING & MEMORY TOGGLE -->
+      <div class="brief-box">
+        <div class="brief-header">
+          <span><b>Echo-Core On-Call Briefing</b></span>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button class="btn sm b-suggest" style="font-size:11px;padding:3px 8px;background:rgba(123,216,143,0.15);color:var(--ok);border-color:var(--ok)">💡 Propose Mitigation</button>
+            <button class="btn sm b-comp" style="font-size:11px;padding:3px 8px">⚖️ Compare vs Generic</button>
+            <button class="btn sm b-verify" style="font-size:11px;padding:3px 8px">🩺 Verify Health</button>
+            <button class="btn sm b-pm" style="font-size:11px;padding:3px 8px">📄 Post-Mortem</button>
+            <div class="brief-toggle" data-id="${i.id}">
+              <button class="b-mem active" data-mode="mem">🧠 Memory ON</button>
+              <button class="b-gen" data-mode="gen">⚡ Memory OFF</button>
+            </div>
+          </div>
+        </div>
+        <div class="brief-content" id="bc-${i.id}">
+          <p style="margin:4px 0;color:var(--mu)">Synthesizing Hindsight memory briefing...</p>
+        </div>
+      </div>
+      <p class="lbl">Timeline & Events</p>
+      <ul class="tl"></ul>
+      <p class="lbl">Mitigation Actions</p>
+      <div class="acts"></div>
+    </div></div>
+  `;
+
+  const h=$(".ih",e);
+  h.onclick=()=>{
+    const opened=e.classList.toggle("open");
+    h.setAttribute("aria-expanded",opened);
+    if(opened)fetchIncidentDetail(i);
+  };
+
+  const toggleBar=$(".brief-toggle",e);
+  $(".b-mem",toggleBar).onclick=evt=>{
+    evt.stopPropagation();
+    st.memModes[i.id]="mem";
+    $(".b-mem",toggleBar).classList.add("active");
+    $(".b-gen",toggleBar).classList.remove("active");
+    renderBriefing(i,e);
+  };
+  $(".b-gen",toggleBar).onclick=evt=>{
+    evt.stopPropagation();
+    st.memModes[i.id]="gen";
+    $(".b-gen",toggleBar).classList.add("active");
+    $(".b-mem",toggleBar).classList.remove("active");
+    renderBriefing(i,e);
+  };
+
+  $(".b-comp",e).onclick=evt=>{
+    evt.stopPropagation();
+    showComparisonModal(i);
+  };
+
+  $(".b-pm",e).onclick=evt=>{
+    evt.stopPropagation();
+    showPostMortemModal(i);
+  };
+
+  $(".b-suggest",e).onclick=async evt=>{
+    evt.stopPropagation();
+    const btn=$(".b-suggest",e);
+    btn.textContent="Formulating...";
+    try{
+      const res=await fetch(`/api/incidents/${i.id}/suggest`,{method:"POST"});
+      const sug=await res.json();
+      btn.textContent="💡 Propose Mitigation";
+      toast("AI Mitigation Proposed",`${sug.action_title} (Staged for human approval)`,2,()=>showApprovalsModal());
+      openChatWithSuggestion(sug);
+      refreshPendingBadges();
+    }catch(err){
+      btn.textContent="💡 Propose Mitigation";
+      toast("Suggestion error",String(err),1);
+    }
+  };
+
+  $(".b-verify",e).onclick=async evt=>{
+    evt.stopPropagation();
+    const btn = $(".b-verify", e);
+    btn.textContent = "Checking...";
+    try {
+      const res = await fetch(`/api/incidents/${i.id}/verify`);
+      const v = await res.json();
+      btn.textContent = "🩺 Verify Health";
+      if(v.is_healthy){
+        toast("🩺 Baseline Verified Nominal", `${v.service} is nominal (p95: ${v.current_p95}ms, Error: ${v.current_err}%)`, 0);
+      } else {
+        toast("⚠️ Health Check Warning", `${v.service} still impacted (p95: ${v.current_p95}ms, Error: ${v.current_err}%)`, 2);
+      }
+    } catch(err) {
+      btn.textContent = "🩺 Verify Health";
+      toast("Health Check Failed", String(err), 1);
+    }
+  };
+
+  const a=$(".acts",e);
+  CMDS.forEach(c=>{
+    const b=document.createElement("button");b.className="btn sm";b.textContent=c.label;b.title=DESC[c.k];
+    b.onclick=()=>ask(i,c);a.append(b);
+  });
+  return e;
+}
+
+function renderBriefing(i,el){
+  const mode=st.memModes[i.id]||"mem";
+  const bc=$("#bc-"+i.id,el);
+  if(!bc)return;
+
+  const data = (mode==="mem") ? (i.briefing||{}) : (i.generic_briefing||{});
+  const isMem = (mode==="mem");
+
+  let html=`
+    <p style="margin:4px 0"><b>Probable Root Cause:</b> ${esc(data.likely_cause || i.cause)}</p>
+    <div class="fix-box">
+      <b>${isMem ? "Recommended Mitigation (Hindsight Memory Proven)" : "Generic Textbook Advice (No Past Context)"}</b>
+      ${esc(data.recommended_fix || "Inspect logs and pod health.")}
+      ${data.command ? `<code>$ ${esc(data.command)}</code>` : ""}
+    </div>
+  `;
+
+  if(isMem && data.failed_fixes && data.failed_fixes.length>5 && !data.failed_fixes.toLowerCase().includes("no historical")){
+    html+=`
+      <div class="warn-failed">
+        <b>🚨 CRITICAL: PREVIOUSLY FAILED FIX (DO NOT ATTEMPT)</b>
+        ${esc(data.failed_fixes)}
+      </div>
+    `;
+  }
+
+  if(isMem && data.resolver && data.resolver!=="Unknown"){
+    html+=`<div style="font-size:12px;color:var(--mu);margin-top:6px"><b>Historical Resolver:</b> ${esc(data.resolver)}</div>`;
+  }
+
+  if(isMem && i.recalled_items && i.recalled_items.length>0){
+    html+=`
+      <div class="mem-view">
+        <span style="font-size:12px;font-weight:600;color:var(--mu)">Recalled from Hindsight Bank (acme-sre):</span><br>
+        ${i.recalled_items.slice(0,3).map(m=>`<span class="mem-pill" title="${esc(m.text)}">Ref: ${esc(m.id.slice(0,8))} (${esc(m.type||'past-incident')})</span>`).join("")}
+      </div>
+    `;
+  }
+
+  bc.innerHTML=html;
+}
+
+async function fetchIncidentDetail(i){
+  try{
+    const res=await fetch(`/api/incidents/${i.id}`);
+    if(res.ok){
+      const detailed=await res.json();
+      Object.assign(i,detailed);
+      const el=elOf(i);
+      if(el)renderBriefing(i,el);
+    }
+  }catch(err){console.error("fetch incident detail:",err)}
+}
+
+function upd(i,e,bump){
+  e.dataset.sev=i.sev;
+  $(".bd",e).textContent=SEVN[i.sev];
+  $(".it b",e).textContent=i.title;
+  $(".id",e).textContent=i.id;
+  $(".sv",e).textContent=i.svc;
+  $(".ag",e).textContent=ago(i.t);
+  
+  const dd=$(".dd",e);
+  if(i.duplicate_count>0){
+    dd.innerHTML=`<span class="dedup-badge">${i.duplicate_count+1} merged</span>`;
+  }else{dd.innerHTML="";}
+
+  const cd=$(".cd",e);
+  if(i.is_cascade){
+    cd.innerHTML=`<span class="cascade-badge">CASCADE</span>`;
+  }else{cd.innerHTML="";}
+  
+  $(".tl",e).innerHTML=(i.ev||[]).slice().reverse().map(([t,x])=>`<li><time>${fmt(t)}</time>${esc(x)}</li>`).join("");
+  renderBriefing(i,e);
+  if(bump){e.classList.remove("bump");void e.offsetWidth;e.classList.add("bump")}
+}
+
+const elOf=i=>$(`[data-id="${i.id}"]`);
+
+function sync(){
+  const L=$("#incList"),vis=incs.filter(i=>(!st.sel||i.svc===st.sel)&&i.status!=="resolved").sort((a,b)=>b.t-a.t);
+  const have=new Map([...L.children].filter(e=>!e.classList.contains("gone")).map(e=>[e.dataset.id,e]));
+  have.forEach((e,id)=>{if(!vis.some(i=>i.id===id)){e.classList.add("gone");setTimeout(()=>e.remove(),320)}});
+  vis.forEach((i,k)=>{
+    let e=have.get(i.id);
+    if(!e){e=elInc(i);upd(i,e)}else{upd(i,e,false)}
+    const cur=[...L.children].filter(x=>!x.classList.contains("gone"));
+    if(cur[k]!==e)L.insertBefore(e,cur[k]||null);
+  });
+  $("#cInc").textContent=vis.length?`${vis.length} open`:"";
+  const em=$("#incEmpty");em.hidden=vis.length>0;
+  em.innerHTML=st.sel?`<b>No open incidents for ${esc(st.sel)}</b><p>This service looks healthy right now.</p><button class="btn sm" id="eClr">Show all services</button>`:`<b>All clear</b><p>No active incidents in queue. Click demo buttons above to trigger scenarios.</p>`;
+  $("#eClr")&&($("#eClr").onclick=()=>select(null));
+  const f=$("#fClr");f.hidden=!st.sel;f.textContent=st.sel?"Filter: "+st.sel+" ×":"";
+}
+
+function reveal(i){
+  select(null);const e=elOf(i);if(!e)return;
+  e.classList.add("open");$(".ih",e).setAttribute("aria-expanded","true");
+  fetchIncidentDetail(i);
+  e.scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+/* commands and resolution */
+let cur=null;const dlg=$("#dlg"),resDlg=$("#resDlg"),compDlg=$("#compDlg"),pmDlg=$("#pmDlg");
+
+function ask(i,c){
+  cur={i,c};
+  if(c.k==="resolve"){
+    $("#resNotes").value=`Resolved ${i.id} on ${i.svc}. Mitigation verified in production.`;
+    $("#resWorked").checked=true;
+    resDlg.showModal();
+    return;
+  }
+  $("#dT").textContent=c.label+" on "+i.svc;
+  $("#dD").textContent=DESC[c.k];
+  $("#dC").textContent="$ "+c.cmd(i.svc);
+  $("#dTargetSvc").textContent=i.svc;
+  $("#dW").hidden=$("#dTy").hidden=!c.risk;
+  $("#dIn").value="";
+  $("#dGo").disabled=!!c.risk;
+
+  const sw=$("#dSafetyWarning");
+  if(i.svc==="payments" && c.k==="restart"){
+    sw.style.display="block";
+    sw.innerHTML="<b>🚨 ECHO-CORE ANTI-PATTERN WARNING:</b> Restarting payments deployment will cause a violent connection stampede that locks Postgres (observed in INC-1001). Are you sure?";
+  }else{
+    sw.style.display="none";
+  }
+
+  dlg.showModal();
+  c.risk&&$("#dIn").focus();
+}
+
+$("#dIn").oninput=e=>$("#dGo").disabled=e.target.value.trim().toLowerCase()!==cur.i.svc.toLowerCase();
+$("#dNo").onclick=()=>dlg.close();
+
+$("#dGo").onclick=async()=>{
+  const{i,c}=cur,b=$("#dGo");
+  b.disabled=true;b.textContent="Running…";
+  
+  try{
+    const res=await fetch(`/api/incidents/${i.id}/command`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        command_key: c.k,
+        command_str: c.cmd(i.svc),
+        service_confirm: cur.i.svc
+      })
+    });
+    const result=await res.json();
+    dlg.close();
+    b.textContent="Run command";
+
+    if(result.catastrophic){
+      toast("🚨 CATASTROPHE: Ignored Failed Fix Warning!",result.message,1);
+    }else if(result.success){
+      toast("Mitigation applied",result.message,i.sev);
+    }
+  }catch(err){
+    console.error(err);
+    dlg.close();
+    b.textContent="Run command";
+  }
+};
+
+$("#resNo").onclick=()=>resDlg.close();
+$("#resGo").onclick=async()=>{
+  const{i}=cur;
+  const notes=$("#resNotes").value;
+  const worked=$("#resWorked").checked;
+  resDlg.close();
+
+  try{
+    const res=await fetch(`/api/incidents/${i.id}/resolve`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({notes,worked,resolver:"Sarah Chen (Staff SRE)"})
+    });
+    const r=await res.json();
+    toast("Incident Resolved & Stored in SQLite",`Retained in Hindsight memory & local DB`,0);
+    i.status="resolved";
+    sync();renderK();
+  }catch(err){console.error("Resolve error:",err)}
+};
+
+function showComparisonModal(i){
+  const mem = i.briefing || {};
+  const gen = i.generic_briefing || {};
+  const comp = i.comparison || {};
+
+  $("#compTitle").textContent = `⚖️ Memory vs Generic AI: ${i.id} (${i.svc})`;
+  $("#compGenCause").textContent = gen.likely_cause || "Generic transient spike";
+  $("#compGenCmd").textContent = "$ " + (gen.command || `kubectl rollout restart deploy/${i.svc}`);
+  $("#compGenFlaw").textContent = comp.generic_fatal_flaw || "Suggests pod restart without pool limits context.";
+
+  $("#compMemCause").textContent = mem.likely_cause || i.cause;
+  $("#compMemCmd").textContent = "$ " + (mem.command || "kubectl patch configmap ...");
+  $("#compMemWarn").textContent = mem.failed_fixes || "None documented.";
+
+  $("#compDeltaBox").innerHTML = `<b>Risk Prevented:</b> ${esc(comp.risk_prevented || "Hindsight memory prevents repeating known failed fixes.")}<br><small style="color:var(--mu)">Echo-Core automatically cites historical resolver: <b>${esc(mem.resolver || 'SRE')}</b></small>`;
+
+  compDlg.showModal();
+}
+$("#compClose").onclick=()=>compDlg.close();
+
+async function showPostMortemModal(i){
+  pmDlg.showModal();
+  $("#pmContent").textContent="Generating comprehensive post-mortem from Hindsight memory...";
+  try{
+    const res=await fetch(`/api/incidents/${i.id}/postmortem`);
+    const md=await res.text();
+    $("#pmContent").textContent=md;
+  }catch(e){
+    $("#pmContent").textContent=`Failed to load post-mortem: ${e}`;
+  }
+}
+$("#pmClose").onclick=()=>pmDlg.close();
+$("#pmCopy").onclick=()=>{
+  navigator.clipboard.writeText($("#pmContent").textContent);
+  toast("Post-Mortem Copied","Markdown report copied to clipboard",0);
+};
+
+/* graph */
+const svg=$("#kg"),NS="http://www.w3.org/2000/svg",mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.append(e);return e};
+const lines=E.map(()=>mk("line",{class:"edge"},svg)),nodes={};
+for(const k in N){const g=mk("g",{class:"node",tabindex:0,role:"button","aria-label":k,"data-k":k},svg);mk("circle",{r:21},g);mk("text",{y:5,class:"n"},g);mk("text",{y:39},g).textContent=k;nodes[k]=g}
+
+function place(){
+  lines.forEach((l,i)=>{const[a,b]=E[i];l.setAttribute("x1",N[a][0]);l.setAttribute("y1",N[a][1]);l.setAttribute("x2",N[b][0]);l.setAttribute("y2",N[b][1])});
+  for(const k in nodes)nodes[k].setAttribute("transform",`translate(${N[k][0]} ${N[k][1]})`);
+}
+
+function health(){
+  for(const k in nodes){
+    const l=incs.filter(i=>i.svc===k&&i.status!=="resolved");
+    nodes[k].dataset.sev=l.length?Math.min(...l.map(i=>i.sev)):0;
+    $(".n",nodes[k]).textContent=l.length||"";
+  }
+}
+
+function paintSel(){
+  const s=st.sel,nb=new Set(E.filter(([a,b])=>a===s||b===s).flat());
+  for(const k in nodes){nodes[k].classList.toggle("sel",k===s);nodes[k].classList.toggle("dim",!!s&&!nb.has(k))}
+  lines.forEach((l,i)=>{const hi=s&&E[i].includes(s);l.classList.toggle("hi",!!hi);l.classList.toggle("dim",!!s&&!hi)});
+  const n=s?incs.filter(i=>i.svc===s&&i.status!=="resolved").length:0;nb.delete(s);
+  $("#kgInfo").innerHTML=s?`<b>${esc(s)}</b> has ${n} active incident${n===1?"":"s"}. Connected to ${[...nb].map(esc).join(", ")}.`:"Select a service to filter incidents. Drag a node to rearrange topology.";
+}
+
+function select(k){st.sel=st.sel===k?null:k;paintSel();sync()}
+
+let drag=null;
+svg.addEventListener("pointerdown",e=>{const g=e.target.closest(".node");if(!g)return;drag={k:g.dataset.k,x:e.clientX,y:e.clientY,m:false};g.setPointerCapture(e.pointerId)});
+svg.addEventListener("pointermove",e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>5)drag.m=true;if(!drag.m)return;const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());N[drag.k]=[clamp(q.x,26,574),clamp(q.y,26,300)];place()});
+svg.addEventListener("pointerup",()=>{if(drag&&!drag.m)select(drag.k);drag=null});
+$("#gRst").onclick=()=>{N=JSON.parse(JSON.stringify(N0));place()};
+$("#fClr").onclick=()=>select(null);
+
+/* logs */
+let logs=[];
+function hl(s){if(!st.q)return esc(s);const re=new RegExp(st.q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi");let o="",last=0;s.replace(re,(m,i)=>{o+=esc(s.slice(last,i))+"<mark>"+esc(m)+"</mark>";last=i+m.length;return m});return o+esc(s.slice(last))}
+function renderLogs(){
+  const q=st.q.toLowerCase(),all=logs.filter(x=>(st.lv==="ALL"||x.l===st.lv)&&(!q||(x.s+" "+x.m).toLowerCase().includes(q))),v=all.slice(0,80);
+  $("#logs").innerHTML=v.map(x=>`<div class="ln" data-l="${x.l}"><time>${fmt(x.t)}</time><span class="lv">${x.l}</span><span class="sv">${hl(x.s)}</span><span class="ms">${hl(x.m)}</span></div>`).join("");
+  $("#logs").hidden=!v.length;$("#logEmpty").hidden=v.length>0;$("#lCnt").textContent=`${all.length} lines`;
+}
+$("#q").oninput=e=>{st.q=e.target.value.trim();renderLogs()};
+$("#lClr").onclick=()=>{$("#q").value="";st.q="";document.querySelector('#chips [data-l="ALL"]').click()};
+$("#bPause").onclick=e=>{st.paused=!st.paused;e.target.setAttribute("aria-pressed",st.paused);e.target.textContent=st.paused?"Resume":"Pause"};
+
+/* demo triggers */
+async function triggerScenario(num){
+  try{
+    const res=await fetch("/api/incidents/simulate",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({scenario_num: num})
+    });
+    const data=await res.json();
+    const inc=data.incident;
+    if(data.merged){
+      toast("Alert Merged",`Duplicate alert merged for ${inc.id} on ${inc.svc}`,inc.sev,()=>reveal(inc));
+    }else{
+      toast(`Demo ${num} Triggered`,inc.title,inc.sev,()=>reveal(inc));
+    }
+    const idx=incs.findIndex(x=>x.id===inc.id);
+    if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
+    sync();health();renderK();
+    reveal(inc);
+  }catch(err){console.error("simulate error:",err)}
+}
+
+$("#bDemo1").onclick=()=>triggerScenario(1);
+$("#bDemo5").onclick=()=>triggerScenario(5);
+$("#bDemo20").onclick=()=>triggerScenario(20);
+
+$("#bCascade").onclick=async()=>{
+  try{
+    toast("Cascade Triggered","Simulating multi-service cascade...",1);
+    const res=await fetch("/api/incidents/cascade",{method:"POST"});
+    const data=await res.json();
+    data.cascade_incidents.forEach(inc=>{
+      const idx=incs.findIndex(x=>x.id===inc.id);
+      if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
+    });
+    sync();health();renderK();
+    toast("Multi-Service Cascade Active",`Echo-Core identified root cause: ${data.root_cause_service}`,1,()=>reveal(data.cascade_incidents[0]));
+  }catch(e){console.error(e)}
+};
+
+$("#bInc").onclick=async()=>{
+  try{
+    const res=await fetch("/api/incidents/simulate",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({})
+    });
+    const d=await res.json();
+    incs.unshift(d.incident);
+    sync();health();renderK();toast("New Incident Alert",d.incident.title,d.incident.sev,()=>reveal(d.incident));
+  }catch(e){console.error(e)}
+};
+
+$("#bClr").onclick=()=>{
+  incs.forEach(i=>i.status="resolved");
+  sync();health();renderK();toast("Queue Cleared","All active incidents marked resolved",0);
+};
+
+/* MEMORY EXPLORER DIALOG */
+const memExpDlg=$("#memExpDlg");
+$("#bMemExp").onclick=()=>{
+  memExpDlg.showModal();
+  $("#memExpQuery").focus();
+};
+$("#memExpClose").onclick=()=>memExpDlg.close();
+
+$("#memExpSearchBtn").onclick=async()=>{
+  const q=$("#memExpQuery").value.trim();
+  if(!q)return;
+  $("#memExpResults").innerHTML="<p style='color:var(--mu)'>Searching Hindsight memory...</p>";
+  try{
+    const res=await fetch(`/api/memory/search?q=${encodeURIComponent(q)}`);
+    const data=await res.json();
+    if(!data.results||!data.results.length){
+      $("#memExpResults").innerHTML="<p style='color:var(--mu)'>No matching memories found in bank.</p>";
+      return;
+    }
+    $("#memExpResults").innerHTML=data.results.map(r=>`
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mu)">
+          <span>ID: <code>${esc(r.id.slice(0,8))}</code></span>
+          <span>Type: <b>${esc(r.type||'memory')}</b></span>
+        </div>
+        <p style="margin:4px 0">${esc(r.text)}</p>
+      </div>
+    `).join("");
+  }catch(err){
+    $("#memExpResults").innerHTML=`<p style="color:var(--s1)">Search failed: ${esc(err)}</p>`;
+  }
+};
+
+/* ANTI-PATTERNS CATALOG DIALOG */
+const antiPatDlg=$("#antiPatDlg");
+$("#bAntiPat").onclick=async()=>{
+  antiPatDlg.showModal();
+  $("#antiPatList").innerHTML="<p style='color:var(--mu)'>Loading anti-patterns from memory...</p>";
+  try{
+    const res=await fetch("/api/memory/anti-patterns");
+    const list=await res.json();
+    $("#antiPatList").innerHTML=list.slice(0,15).map(ap=>`
+      <div class="ap-item">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b>${esc(ap.service.toUpperCase())} – ${esc(ap.title)}</b>
+          <span style="font-size:11px;color:var(--mu)">Ref: ${esc(ap.incident_id)}</span>
+        </div>
+        <div class="warn-failed" style="margin:4px 0 2px">
+          <b>DO NOT ATTEMPT:</b> ${esc(ap.dangerous_action)}
+        </div>
+        <small style="color:var(--mu)">Resolved by: ${esc(ap.resolver)}</small>
+      </div>
+    `).join("");
+  }catch(e){
+    $("#antiPatList").innerHTML=`<p style="color:var(--s1)">Failed to load: ${esc(e)}</p>`;
+  }
+};
+$("#antiPatClose").onclick=()=>antiPatDlg.close();
+
+/* ========================================================
+   APPROVALS QUEUE & HUMAN-IN-THE-LOOP DIALOG
+======================================================== */
+const appDlg=$("#appDlg");
+$("#bApprovals").onclick=()=>showApprovalsModal();
+$("#appClose").onclick=()=>appDlg.close();
+$("#appRefresh").onclick=()=>showApprovalsModal();
+
+async function showApprovalsModal(){
+  appDlg.showModal();
+  $("#appList").innerHTML="<p style='color:var(--mu)'>Loading AI proposed mitigations...</p>";
+  try{
+    const res=await fetch("/api/suggestions");
+    const items=await res.json();
+    if(!items.length){
+      $("#appList").innerHTML="<p style='color:var(--mu);text-align:center;padding:24px'>No pending suggestions. AI will stage mitigations when incidents or chat requests occur.</p>";
+      return;
+    }
+    $("#appList").innerHTML="";
+    items.forEach(sug=>{
+      const card=createSuggestionElement(sug);
+      $("#appList").appendChild(card);
+    });
+  }catch(e){
+    $("#appList").innerHTML=`<p style="color:var(--s1)">Error loading approvals: ${esc(e)}</p>`;
+  }
+}
+
+async function refreshPendingBadges(){
+  try{
+    const res=await fetch("/api/suggestions?status=pending");
+    const pending=await res.json();
+    const count=pending.length;
+    const b=$("#appBadge"), cb=$("#chatToggleBadge");
+    if(count>0){
+      b.style.display="inline-block";b.textContent=count;
+      cb.style.display="inline-block";cb.textContent=count;
+    }else{
+      b.style.display="none";cb.style.display="none";
+    }
+  }catch(e){}
+}
+
+function createSuggestionElement(sug){
+  const div=document.createElement("div");
+  div.className="sug-card";
+  div.id=`sug-card-${sug.id}`;
+
+  const isPending = sug.status === "pending";
+  const isApproved = sug.status === "approved";
+  const isRejected = sug.status === "rejected";
+
+  let actsHtml = "";
+  if(isPending){
+    actsHtml = `
+      <div class="sug-acts" id="sug-acts-${sug.id}">
+        <button class="sug-btn-allow" data-id="${sug.id}">✅ Allow (Execute Action)</button>
+        <button class="sug-btn-reject" data-id="${sug.id}">❌ Reject</button>
+        <small style="color:var(--mu);margin-left:auto;font-size:11px">Gated by human approval</small>
+      </div>
+    `;
+  }else if(isApproved){
+    actsHtml = `<div style="margin-top:4px"><span class="sug-status-badge approved">✅ Approved & Executed by ${esc(sug.approved_by||'SRE')}</span><br><small style="color:var(--mu);font-size:11px">${esc(sug.execution_result||'')}</small></div>`;
+  }else if(isRejected){
+    actsHtml = `<div style="margin-top:4px"><span class="sug-status-badge rejected">❌ Discarded by Operator</span> <small style="color:var(--mu);font-size:11px">(${esc(sug.rejected_reason||'Rejected')})</small></div>`;
+  }
+
+  div.innerHTML = `
+    <div class="sug-head">
+      <b>${esc(sug.action_title)}</b>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="chip" style="font-size:10px;padding:1px 6px">${esc(sug.svc)}</span>
+        <span class="sug-risk ${esc(sug.risk_level)}">${esc(sug.risk_level)} RISK</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--tx)">${esc(sug.recommendation)}</div>
+    <code class="sug-cmd">$ ${esc(sug.command)}</code>
+    <div style="font-size:11px;color:var(--mu)"><b>Reasoning:</b> ${esc(sug.reasoning || 'Derived from SRE memory & runbooks.')}</div>
+    ${actsHtml}
+  `;
+
+  if(isPending){
+    const btnAllow=$(".sug-btn-allow", div);
+    const btnReject=$(".sug-btn-reject", div);
+    btnAllow.onclick=()=>handleAllowSuggestion(sug.id, div);
+    btnReject.onclick=()=>handleRejectSuggestion(sug.id, div);
+  }
+
+  return div;
+}
+
+async function handleAllowSuggestion(sugId, cardEl){
+  const acts=$(`#sug-acts-${sugId}`, cardEl);
+  if(acts)acts.innerHTML="<span style='color:var(--ok);font-size:12px'>Executing authorized command...</span>";
+
+  try{
+    const res=await fetch(`/api/suggestions/${sugId}/approve`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({actor:"Sarah Chen (Staff SRE)"})
+    });
+    const data=await res.json();
+    if(data.success){
+      toast("Action Authorized & Executed",data.execution_result.message||"Mitigation applied",0);
+      if(acts){
+        acts.outerHTML=`<div style="margin-top:4px"><span class="sug-status-badge approved">✅ Approved & Executed by Sarah Chen</span><br><small style="color:var(--ok);font-size:11px">${esc(data.execution_result.message||'')}</small></div>`;
+      }
+      refreshPendingBadges();
+      // Add chat message
+      appendChatMsg("assistant", `✅ **Action #${sugId} Authorized:** Staged command has been executed. Telemetry easing towards baseline.`);
+    }else{
+      toast("Execution failed",data.detail||"Error",1);
+    }
+  }catch(e){
+    toast("Approval error",String(e),1);
+  }
+}
+
+async function handleRejectSuggestion(sugId, cardEl){
+  const acts=$(`#sug-acts-${sugId}`, cardEl);
+  try{
+    const res=await fetch(`/api/suggestions/${sugId}/reject`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({reason:"Manual operator override",actor:"Sarah Chen (Staff SRE)"})
+    });
+    const data=await res.json();
+    if(data.success){
+      toast("Action Discarded","Mitigation proposal rejected by operator",0);
+      if(acts){
+        acts.outerHTML=`<div style="margin-top:4px"><span class="sug-status-badge rejected">❌ Discarded by Operator</span></div>`;
+      }
+      refreshPendingBadges();
+      appendChatMsg("assistant", `❌ **Action #${sugId} Rejected:** Mitigation proposal discarded.`);
+    }
+  }catch(e){
+    toast("Rejection error",String(e),1);
+  }
+}
+
+/* ========================================================
+   SQLITE DATABASE & AUDIT TRAIL MODAL
+======================================================== */
+const dbDlg=$("#dbDlg");
+$("#bDbAudit").onclick=()=>showDatabaseModal();
+$("#dbClose").onclick=()=>dbDlg.close();
+$("#dbRefresh").onclick=()=>showDatabaseModal();
+
+async function showDatabaseModal(){
+  dbDlg.showModal();
+  try{
+    const [statsRes, auditRes] = await Promise.all([
+      fetch("/api/database/stats"),
+      fetch("/api/audit?limit=25")
+    ]);
+    const stats=await statsRes.json();
+    const audits=await auditRes.json();
+
+    $("#dbCountInc").textContent=stats.total_incidents||0;
+    $("#dbCountAlerts").textContent=stats.total_alerts||0;
+    $("#dbCountChat").textContent=stats.chat_messages||0;
+    $("#dbCountAudit").textContent=stats.audit_logs||0;
+    $("#dbLocationText").textContent=stats.db_location||"data/echo_core.db";
+
+    if(!audits.length){
+      $("#auditTableBody").innerHTML="<tr><td colspan='5' style='color:var(--mu);text-align:center'>No audit events recorded yet.</td></tr>";
+    }else{
+      $("#auditTableBody").innerHTML=audits.map(a=>`
+        <tr>
+          <td><time style="font-family:var(--fm);color:var(--mu)">${fmt(a.timestamp)}</time></td>
+          <td><b>${esc(a.action)}</b></td>
+          <td>${esc(a.svc||a.incident_id||'–')}</td>
+          <td>${esc(a.actor)}</td>
+          <td>${esc(a.details||'')}</td>
+        </tr>
+      `).join("");
+    }
+  }catch(e){
+    console.error("DB modal error:",e);
+  }
+}
+
+/* ========================================================
+   HOST SYSTEM HARDWARE & DIAGNOSTICS
+======================================================== */
+const hostDlg=$("#hostDlg");
+$("#bHostDiag").onclick=()=>showHostModal();
+$("#hostClose").onclick=()=>hostDlg.close();
+$("#hostRefreshBtn").onclick=()=>loadHostMetrics();
+
+async function showHostModal(){
+  hostDlg.showModal();
+  await loadHostMetrics();
+}
+
+async function loadHostMetrics(){
+  try{
+    const res=await fetch("/api/host/metrics");
+    const data=await res.json();
+    const specs=data.specs||{};
+
+    $("#hostSpecsLine").textContent=`${specs.os||'OS'} • Host: ${specs.hostname||'local'} • ${specs.cpu_cores||'Multi'}-Core (${specs.architecture||'x64'}) • RAM: ${specs.total_ram_gb||0}GB`;
+    $("#hostCpuVal").textContent=`${data.cpu_percent}%`;
+    $("#hostCpuBar").style.width=`${Math.min(100, data.cpu_percent)}%`;
+
+    $("#hostRamVal").textContent=`${data.ram_percent}% (${data.ram_used_gb}GB)`;
+    $("#hostRamBar").style.width=`${Math.min(100, data.ram_percent)}%`;
+
+    $("#hostDiskVal").textContent=`${data.disk_percent}%`;
+    $("#hostDiskBar").style.width=`${Math.min(100, data.disk_percent)}%`;
+
+    if(data.top_processes&&data.top_processes.length){
+      $("#hostProcsBody").innerHTML=data.top_processes.map(p=>`
+        <tr>
+          <td><b>${esc(p.name)}</b></td>
+          <td><span class="chip" style="font-size:11px">${p.ram_percent}%</span></td>
+          <td>${p.cpu_percent}%</td>
+        </tr>
+      `).join("");
+    }else{
+      $("#hostProcsBody").innerHTML="<tr><td colspan='3' style='text-align:center;color:var(--mu)'>No heavy processes detected.</td></tr>";
+    }
+  }catch(e){
+    console.error("load host metrics error:",e);
+  }
+}
+
+$("#bRunHostTest").onclick=async()=>{
+  const btn=$("#bRunHostTest");
+  btn.disabled=true;
+  btn.textContent="Running Hardware & OS Benchmark on this computer...";
+  $("#hostResults").style.display="none";
+
+  try{
+    const res=await fetch("/api/host/diagnostic-test",{method:"POST"});
+    const report=await res.json();
+    btn.disabled=false;
+    btn.textContent="▶️ Re-Run Host System Diagnostic Benchmark Test";
+
+    $("#hostResults").style.display="block";
+    const hb=$("#hostHealthBadge");
+    hb.textContent=report.overall_health;
+    hb.className="comp-badge "+(report.overall_health==="HEALTHY"?"safe":"danger");
+
+    $("#hostChecksList").innerHTML=report.checks.map(c=>`
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <b>${esc(c.name)}</b>
+          <div style="font-size:12px;color:var(--mu)">${esc(c.detail)}</div>
+        </div>
+        <span class="comp-badge ${c.status==='PASSED'?'safe':'danger'}">${esc(c.status)}</span>
+      </div>
+    `).join("");
+
+    if(report.created_incidents&&report.created_incidents.length){
+      report.created_incidents.forEach(inc=>{
+        const idx=incs.findIndex(i=>i.id===inc.id);
+        if(idx>=0)incs[idx]=inc;else incs.unshift(inc);
+      });
+      sync();health();renderK();
+      toast(`Host Incident Detected`,report.created_incidents[0].title,report.created_incidents[0].sev,()=>reveal(report.created_incidents[0]));
+    }else{
+      toast("Host Hardware Verified Nominal",`Computer ${report.specs.hostname} passed all health checks`,0);
+    }
+
+    refreshPendingBadges();
+  }catch(err){
+    btn.disabled=false;
+    btn.textContent="▶️ Run Host System Diagnostic Benchmark Test";
+    toast("Host Diagnostic Error",String(err),1);
+  }
+};
+
+/* ========================================================
+   SRE AI COPILOT CHATBOT
+======================================================== */
+const chatWidget=$("#chatWidget");
+const chatPanel=$("#chatPanel");
+const chatToggleBtn=$("#chatToggleBtn");
+const chatCloseBtn=$("#chatCloseBtn");
+const chatClearBtn=$("#chatClearBtn");
+const chatForm=$("#chatForm");
+const chatIn=$("#chatIn");
+const chatMsgs=$("#chatMsgs");
+
+function toggleChat(){
+  chatPanel.classList.toggle("open");
+  if(chatPanel.classList.contains("open")){
+    chatIn.focus();
+    chatMsgs.scrollTop=chatMsgs.scrollHeight;
+  }
+}
+chatToggleBtn.onclick=toggleChat;
+chatCloseBtn.onclick=()=>chatPanel.classList.remove("open");
+
+chatClearBtn.onclick=async()=>{
+  await fetch("/api/chat/clear",{method:"POST"});
+  chatMsgs.innerHTML=`
+    <div class="chat-msg assistant">
+      <p>🧹 <i>Chat history cleared. SRE Copilot ready for on-call queries.</i></p>
+    </div>
+  `;
+  toast("Chat Cleared","Assistant conversation reset",0);
+};
+
+function appendChatMsg(role, text, suggestion){
+  const div=document.createElement("div");
+  div.className=`chat-msg ${role}`;
+  
+  // Format basic markdown for assistant
+  if(role==="assistant"){
+    let formatted = esc(text)
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+      .replace(/\*(.*?)\*/g, '<i>$1</i>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n- /g, '<br>• ')
+      .replace(/\n/g, '<br>');
+    div.innerHTML = `<p>${formatted}</p>`;
+  }else{
+    div.textContent=text;
+  }
+
+  if(suggestion){
+    const card=createSuggestionElement(suggestion);
+    div.appendChild(card);
+  }
+
+  chatMsgs.appendChild(div);
+  chatMsgs.scrollTop=chatMsgs.scrollHeight;
+}
+
+function openChatWithSuggestion(sug){
+  chatPanel.classList.add("open");
+  appendChatMsg("assistant", `💡 **Mitigation Formulated:** Below is the staged action for \`${sug.svc}\`. It will not execute until you click **Allow**.`, sug);
+}
+
+chatForm.onsubmit=async e=>{
+  e.preventDefault();
+  const msg=chatIn.value.trim();
+  if(!msg)return;
+  chatIn.value="";
+  appendChatMsg("user", msg);
+
+  // Loading indicator
+  const loadDiv=document.createElement("div");
+  loadDiv.className="chat-msg assistant";
+  loadDiv.id="chatLoading";
+  loadDiv.innerHTML="<p style='color:var(--mu)'>Echo-Core analyzing telemetry & runbooks...</p>";
+  chatMsgs.appendChild(loadDiv);
+  chatMsgs.scrollTop=chatMsgs.scrollHeight;
+
+  try{
+    const res=await fetch("/api/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message: msg})
+    });
+    const data=await res.json();
+    loadDiv.remove();
+    appendChatMsg("assistant", data.content, data.suggestion);
+    if(data.suggestion)refreshPendingBadges();
+  }catch(err){
+    loadDiv.remove();
+    appendChatMsg("assistant", `⚠️ Error contacting agent: ${esc(err)}`);
+  }
+};
+
+document.querySelectorAll(".chat-chip").forEach(chip=>{
+  chip.onclick=()=>{
+    const q=chip.dataset.q;
+    if(q){
+      chatIn.value=q;
+      chatForm.dispatchEvent(new Event("submit"));
+    }
+  };
+});
+
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+  if(!b.dataset.t)return;
+  document.documentElement.dataset.theme=b.dataset.t;
+  document.querySelectorAll(".seg button").forEach(x=>{if(x.dataset.t)x.setAttribute("aria-pressed",x===b)});
+});
+
+/* SSE CONNECTION TO BACKEND */
+function connectSSE(){
+  const es=new EventSource("/api/events");
+  es.onmessage=evt=>{
+    try{
+      const data=JSON.parse(evt.data);
+      if(data.metrics){
+        M.rps=data.metrics.rps;M.p95=data.metrics.p95;M.err=data.metrics.err;
+        if(data.metrics.history)Object.assign(H,data.metrics.history);
+        renderK();
+      }
+      if(data.logs&&data.logs.length){
+        data.logs.forEach(l=>{if(!logs.some(existing=>existing.t===l.t&&existing.m===l.m))logs.unshift(l)});
+        if(logs.length>300)logs.length=300;
+        renderLogs();
+      }
+      if(data.incidents){
+        data.incidents.forEach(inc=>{
+          const idx=incs.findIndex(i=>i.id===inc.id);
+          if(idx>=0){
+            Object.assign(incs[idx],inc);
+          }else{
+            incs.unshift(inc);
+            toast("New Incident Detected",inc.title,inc.sev,()=>reveal(inc));
+          }
+        });
+        sync();health();
+      }
+      const b=$("#hsBanner");
+      if(data.hindsight){
+        b.style.display="flex";
+        if(data.hindsight.is_healthy){
+          b.className="banner-offline ok";
+          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code> (40+ incidents retained) • 🗄️ <b>SQLite:</b> Connected (echo_core.db)</span><span id="hsStatus" style="font-weight:600">Online</span>`;
+        }else{
+          b.className="banner-offline";
+          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Offline (${esc(data.hindsight.last_error||"API Key not configured")}) • 🗄️ SQLite Active</span><span id="hsStatus" style="font-size:12px;opacity:0.85">Running in zero-memory fallback mode</span>`;
+        }
+      }
+    }catch(e){console.error("SSE parse error:",e)}
+  };
+  es.onerror=()=>{
+    $("#live").classList.add("off");
+    $("#live span").textContent="Reconnecting...";
+  };
+  es.onopen=()=>{
+    $("#live").classList.remove("off");
+    $("#live span").textContent="Live";
+  };
+}
+
+/* boot */
+document.querySelectorAll(".legend").forEach(l=>l.innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"],[0,"Healthy"]].map(([s,n])=>`<span data-sev="${s}"><i></i>${n}</span>`).join(""));
+place();health();paintSel();
+{const t="geordie";document.documentElement.dataset.theme=t;document.querySelectorAll(".seg button").forEach(x=>{if(x.dataset.t)x.setAttribute("aria-pressed",x.dataset.t===t)})}
+
+fetch("/api/incidents").then(r=>r.json()).then(data=>{
+  incs=data;
+  sync();health();renderK();
+  document.body.classList.remove("loading");
+}).catch(()=>{
+  document.body.classList.remove("loading");
+});
+
+connectSSE();
+refreshPendingBadges();
+</script></body></html>

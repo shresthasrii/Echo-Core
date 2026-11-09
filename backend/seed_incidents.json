@@ -1,0 +1,563 @@
+[
+  {
+    "id": "INC-1001",
+    "svc": "payments",
+    "sev": 1,
+    "title": "Postgres connection pool exhaustion during post-deploy traffic spike",
+    "cause": "HikariCP default connection pool limit (10) was exceeded when payment checkout webhook traffic surged after release v2.4.1.",
+    "error_log": "org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserved for non-replication superuser connections (active: 100/100)",
+    "fix_worked": "Increased Postgres max_connections to 350 and adjusted payments HikariCP maximumPoolSize=60 via configmap rollout.",
+    "fixes_failed": [
+      "Blindly restarted payments deployment pods with 'kubectl rollout restart deploy/payments'. This caused a violent connection stampede upon startup, locking Postgres entirely and extending the outage by 18 minutes."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "db-pool-exhaustion"
+  },
+  {
+    "id": "INC-1002",
+    "svc": "redis",
+    "sev": 2,
+    "title": "Redis OOM eviction storm causing session validation dropouts",
+    "cause": "Session tokens stored without TTL expiration caused Redis memory to hit the 8GB maxmemory ceiling, triggering allkeys-lru eviction of active cache shards.",
+    "error_log": "OOM command not allowed when used memory > 'maxmemory' (used: 8192MB / 8192MB)",
+    "fix_worked": "Switched eviction policy to volatile-lru, expanded Redis shard memory to 16GB, and enabled TTL=86400 on session keys.",
+    "fixes_failed": [
+      "Attempted FLUSHDB to clear memory. This triggered an immediate massive cache stampede onto the Postgres primary database, driving CPU to 100%."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "cache-eviction-storm"
+  },
+  {
+    "id": "INC-1003",
+    "svc": "api-gateway",
+    "sev": 2,
+    "title": "504 Gateway Timeout cascade due to search service degradation",
+    "cause": "Search service degraded due to cold index, causing gateway HTTP client connections to block until the 60-second gateway timeout.",
+    "error_log": "upstream timed out (110: Connection timed out) while reading response header from upstream: search.prod.internal:8080",
+    "fix_worked": "Enabled Envoy circuit breaker with max_pending_requests=50 and configured fallback empty response for search suggestions.",
+    "fixes_failed": [
+      "Increased proxy_read_timeout from 60s to 120s. This consumed all 10,000 available NGINX worker connections and froze all API traffic across the entire site."
+    ],
+    "resolver": "Devon Vance (Platform Lead)",
+    "pattern": "connection-timeout-cascade"
+  },
+  {
+    "id": "INC-1004",
+    "svc": "queue",
+    "sev": 3,
+    "title": "Dead-letter queue accumulation due to proto schema mismatch",
+    "cause": "Order processor v3.2 published payload with missing enum field, causing queue consumer deserialization panic and DLQ diversion.",
+    "error_log": "com.fasterxml.jackson.databind.exc.InvalidFormatException: Cannot deserialize value of type PaymentMethodEnum",
+    "fix_worked": "Deployed consumer patch v3.2.1 with unknown enum fallback handler, then drained and redrove DLQ messages at 50 msg/sec.",
+    "fixes_failed": [
+      "Ran batch redrive script 'ops queue redrive --all' without patching consumer. All 84,000 poisoned messages crashed the consumer pods in an infinite crash-loop."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "dead-letter-deserialization"
+  },
+  {
+    "id": "INC-1005",
+    "svc": "postgres",
+    "sev": 2,
+    "title": "Autovacuum wraparound freeze lock on orders table",
+    "cause": "Long-running reporting query held shared transaction lock for 7 hours, blocking autovacuum from truncating dead tuples.",
+    "error_log": "WARNING: database 'production' must be vacuumed within 1845214 transactions before transaction ID wraparound",
+    "fix_worked": "Terminated blocking query PID via pg_terminate_backend and initiated VACUUM ANALYZE (PARALLEL 4) orders.",
+    "fixes_failed": [
+      "Restarted the Postgres primary instance. Postgres had to replay WAL logs and perform crash recovery for 45 minutes before accepting writes."
+    ],
+    "resolver": "Kenji Sato (DBA Team)",
+    "pattern": "db-vacuum-lock"
+  },
+  {
+    "id": "INC-1006",
+    "svc": "auth",
+    "sev": 1,
+    "title": "JWT verification latency spike following certificate rotation",
+    "cause": "JWKS URI cache was set to 0 seconds in auth-service config, forcing an outbound HTTPS roundtrip to the identity provider on every single request.",
+    "error_log": "JWKS fetch latency 480ms from idp.prod.internal; threadpool exhaustion in auth-worker",
+    "fix_worked": "Updated auth-service config to cache JWKS public keys in-memory for 1 hour with a 10-minute stale grace period.",
+    "fixes_failed": [
+      "Scaled auth replicas from 4 to 20. This amplified outbound HTTPS traffic to the IDP, triggering IDP rate limiting (HTTP 429) and completely disabling logins."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "auth-jwks-storm"
+  },
+  {
+    "id": "INC-1007",
+    "svc": "orders",
+    "sev": 2,
+    "title": "Order creation 500 error due to database sequence integer overflow",
+    "cause": "orders_id_seq reached maximum integer value (2,147,483,647) because column type was INT4 instead of BIGINT.",
+    "error_log": "ERROR: integer out of range in sequence 'orders_id_seq'",
+    "fix_worked": "Migrated column to BIGINT using ALTER TABLE orders ALTER COLUMN id TYPE BIGINT with zero-downtime shadow column procedure.",
+    "fixes_failed": [
+      "Attempted 'ALTER TABLE orders ALTER COLUMN id TYPE BIGINT' directly during peak hours. This acquired an ACCESS EXCLUSIVE lock on the 50GB table, locking writes for 20 minutes."
+    ],
+    "resolver": "Kenji Sato (DBA Team)",
+    "pattern": "db-schema-overflow"
+  },
+  {
+    "id": "INC-1008",
+    "svc": "ml-ranker",
+    "sev": 3,
+    "title": "ML ranker inference p99 latency spike due to glibc malloc fragmentation",
+    "cause": "Repeated creation and destruction of dynamic tensor arrays caused resident memory fragmentation in PyTorch C++ wrapper.",
+    "error_log": "RSS memory at 94% (15.2GB/16GB) without active batch load; jemalloc arena contention",
+    "fix_worked": "Preloaded jemalloc library (LD_PRELOAD=/usr/lib/libjemalloc.so) and configured MALLOC_CONF='dirty_decay_ms:1000,muzzy_decay_ms:1000'.",
+    "fixes_failed": [
+      "Increased pod memory limit from 16GB to 32GB without fixing allocator. The leak consumed 32GB within 4 hours, causing node-level OOM killer to terminate kubelet."
+    ],
+    "resolver": "David Chen (MLOps)",
+    "pattern": "memory-fragmentation"
+  },
+  {
+    "id": "INC-1009",
+    "svc": "search",
+    "sev": 2,
+    "title": "Elasticsearch cluster state RED due to unassigned replica shards",
+    "cause": "Data node disk usage exceeded 85% flood-stage watermark after bulk product index reindexing.",
+    "error_log": "cluster_block_exception: blocked by: [TOO_MANY_REQUESTS/12/disk usage exceeded flood-stage watermark]",
+    "fix_worked": "Purged temporary snapshot indices, lowered retention, and dynamically increased cluster flood-stage watermark to 92% to re-enable write indices.",
+    "fixes_failed": [
+      "Force-assigned replica shards using cluster reroute with 'allocate_empty_primary'. This caused permanent silent loss of 120,000 product search indices."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "disk-watermark"
+  },
+  {
+    "id": "INC-1010",
+    "svc": "payments",
+    "sev": 1,
+    "title": "Double billing risk due to Stripe webhook idempotency race condition",
+    "cause": "Distributed lock in Redis for charge.succeeded was using non-atomic GET then SET, allowing concurrent webhooks to process twice.",
+    "error_log": "WARN: Duplicate transaction processing attempt detected for external_id: ch_3N8e12918",
+    "fix_worked": "Replaced lock acquisition with atomic Redis SET key value NX EX 30 and enabled database unique constraint on payment_transactions(external_id).",
+    "fixes_failed": [
+      "Disabled webhook ingress temporarily to avoid double charges. Customers were charged by Stripe but orders were never fulfilled, generating 400 support tickets."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "idempotency-race"
+  },
+  {
+    "id": "INC-1011",
+    "svc": "orders",
+    "sev": 3,
+    "title": "Order status notification delay due to thread pool starvation",
+    "cause": "Asynchronous email sender used synchronous HTTP client blocking the shared Tomcat common worker thread pool.",
+    "error_log": "java.util.concurrent.RejectedExecutionException: Task rejected from java.util.concurrent.ThreadPoolExecutor@41a (pool size 200, active 200)",
+    "fix_worked": "Isolated email and push notification dispatches to dedicated bounded thread pool with non-blocking WebClient.",
+    "fixes_failed": [
+      "Increased maxThreads in server.xml from 200 to 1,000. Under heavy load, this exhausted OS thread handles and caused kernel memory thrashing."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "threadpool-exhaustion"
+  },
+  {
+    "id": "INC-1012",
+    "svc": "api-gateway",
+    "sev": 2,
+    "title": "TLS handshake failure rate elevated after ingress controller update",
+    "cause": "New ingress controller version defaulted to strict TLSv1.3 with deprecated cipher suites, disconnecting older mobile clients.",
+    "error_log": "SSL_do_handshake() failed (SSL: error:14094410:SSL routines:ssl3_read_bytes:sslv3 alert handshake failure)",
+    "fix_worked": "Restored TLSv1.2 compatibility ciphers (ECDHE-ECDSA-AES128-GCM-SHA256) in ingress-nginx ConfigMap.",
+    "fixes_failed": [
+      "Generated and installed a new wildcard TLS certificate. The cipher mismatch was protocol-level, so the new certificate did not resolve handshake failures."
+    ],
+    "resolver": "Devon Vance (Platform Lead)",
+    "pattern": "tls-cipher-mismatch"
+  },
+  {
+    "id": "INC-1013",
+    "svc": "postgres",
+    "sev": 2,
+    "title": "Postgres replica lag exceeded 60 seconds causing stale catalog reads",
+    "cause": "Replica was running heavy analytics queries that conflicted with incoming WAL replication stream, triggering recovery conflict pauses.",
+    "error_log": "FATAL: terminating connection due to conflict with recovery (User query might have needed to see row versions that must be removed)",
+    "fix_worked": "Set max_standby_streaming_delay=30s on replicas and routed analytical queries to dedicated read-only warehouse replica.",
+    "fixes_failed": [
+      "Increased hot_standby_feedback=on without safety monitoring. This prevented the primary from vacuuming deleted rows, bloating table size by 40GB."
+    ],
+    "resolver": "Kenji Sato (DBA Team)",
+    "pattern": "replica-lag"
+  },
+  {
+    "id": "INC-1014",
+    "svc": "auth",
+    "sev": 2,
+    "title": "Redis eviction storm on auth tokens during morning peak",
+    "cause": "Marketing campaign sent 500,000 push notifications at 9:00 AM; user token creations exhausted Redis maxmemory shard.",
+    "error_log": "OOM command not allowed when used memory > 'maxmemory' in redis-auth-shard-01",
+    "fix_worked": "Provisioned additional 4GB shard for auth redis cluster and configured token TTL to 4 hours with sliding refresh.",
+    "fixes_failed": [
+      "Restarted Redis container. Without persistent append-only files loaded, every user session was instantly invalidated, forcing 150,000 concurrent relogins."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "cache-eviction-storm"
+  },
+  {
+    "id": "INC-1015",
+    "svc": "queue",
+    "sev": 2,
+    "title": "RabbitMQ high memory alarm blocking producer publishers",
+    "cause": "Unacknowledged messages on orders-fulfill queue accumulated past 100,000 because consumer concurrency was capped at 2.",
+    "error_log": "connection refused: [vm_memory_high_watermark] memory limit (0.4) reached, blocking publishers",
+    "fix_worked": "Scaled consumer deployment to 12 replicas and configured prefetch_count=20 to quickly drain backlogged queue.",
+    "fixes_failed": [
+      "Purged the queue via management console. 14,000 active customer orders were permanently erased from the fulfillment pipeline."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "queue-backpressure"
+  },
+  {
+    "id": "INC-1016",
+    "svc": "search",
+    "sev": 3,
+    "title": "Search index latency spike caused by unoptimized wildcard queries",
+    "cause": "Frontend search box permitted leading wildcard queries (e.g. '*phone*'), bypassing inverted index and forcing full table scans.",
+    "error_log": "Search query took 4200ms; Lucene regex query execution exceeded max_clause_count",
+    "fix_worked": "Added frontend query sanitizer to strip leading wildcards and deployed ngram tokenizer for partial string matching.",
+    "fixes_failed": [
+      "Increased Elasticsearch query thread pool size to 64. CPU immediately spiked to 100% across all 3 search nodes."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "query-tuning"
+  },
+  {
+    "id": "INC-1017",
+    "svc": "payments",
+    "sev": 1,
+    "title": "Payments connection pool starvation after Friday microservice deploy",
+    "cause": "Payments service release v2.9.0 introduced unclosed Hibernate EntityManager sessions inside payment retry loops.",
+    "error_log": "HikariPool-1 - Connection is not available, request timed out after 30005ms (active=50, idle=0, waiting=120)",
+    "fix_worked": "Rolled back payments service to v2.8.9 and verified DB connection pool returned to 8 idle connections.",
+    "fixes_failed": [
+      "Attempted 'kubectl scale deploy/payments --replicas=10' to handle load. Adding 5 more replicas multiplied the leaked connections and completely exhausted Postgres connections."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "db-pool-exhaustion"
+  },
+  {
+    "id": "INC-1018",
+    "svc": "ml-ranker",
+    "sev": 2,
+    "title": "CUDA out of memory error during feature vector calculation",
+    "cause": "New recommendation model weights were 2x larger than previous checkpoint, leaving insufficient VRAM for batch size 128.",
+    "error_log": "torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 512.00 MiB (GPU 0; 15.78 GiB total capacity; 15.30 GiB already allocated)",
+    "fix_worked": "Reduced batch size to 64 and enabled mixed precision FP16 inference in model serving configuration.",
+    "fixes_failed": [
+      "Restarted Triton inference server without changing batch size. It immediately crashed on the first inference batch with the same CUDA OOM."
+    ],
+    "resolver": "David Chen (MLOps)",
+    "pattern": "gpu-oom"
+  },
+  {
+    "id": "INC-1019",
+    "svc": "api-gateway",
+    "sev": 1,
+    "title": "DDOS volumetric flood on /api/v1/search endpoint",
+    "cause": "Distributed bot scraper targeted unauthenticated search endpoint from 1,200 residential IP proxies.",
+    "error_log": "NGINX limit_req zone 'search_per_ip' exceeded: 429 Too Many Requests, rate 12,000 rps",
+    "fix_worked": "Activated Cloudflare Under Attack mode and deployed rate-limiting rule on /api/v1/search capped at 15 req/min per IP.",
+    "fixes_failed": [
+      "Attempted manual iptables IP block on host. The botnet rotated IPs faster than iptables could be updated and iptables rules slowed kernel routing."
+    ],
+    "resolver": "Devon Vance (Platform Lead)",
+    "pattern": "bot-traffic-flood"
+  },
+  {
+    "id": "INC-1020",
+    "svc": "payments",
+    "sev": 1,
+    "title": "Postgres connection pool exhaustion on payments service (Recurring Friday Pattern)",
+    "cause": "Recurring issue: Payments microservice database connection pool exhausted following deploy during high checkout volume.",
+    "error_log": "FATAL: remaining connection slots are reserved for non-replication superuser connections (active: 300/300) from payments-worker",
+    "fix_worked": "Deployed PgBouncer transaction-mode connection pooler in front of Postgres and tuned payments HikariCP pool to max 20 connections per pod.",
+    "fixes_failed": [
+      "CRITICAL FAILED FIX: Restarting payments pods ('kubectl rollout restart deploy/payments') caused a violent reconnection storm that brought Postgres down.",
+      "CRITICAL FAILED FIX: Scaling up payments replicas multiplied active DB connections and caused database kernel panic."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "db-pool-exhaustion"
+  },
+  {
+    "id": "INC-1021",
+    "svc": "orders",
+    "sev": 2,
+    "title": "Kafka consumer group rebalance storm during deployment",
+    "cause": "Long message processing time exceeded max.poll.interval.ms (300000ms), causing Kafka coordinator to treat consumer as dead and trigger rebalance.",
+    "error_log": "org.apache.kafka.clients.consumer.CommitFailedException: Commit cannot be completed since the group has already rebalanced",
+    "fix_worked": "Increased max.poll.interval.ms to 600000ms and reduced max.poll.records from 500 to 50 in consumer properties.",
+    "fixes_failed": [
+      "Restarted all Kafka broker nodes. This threw every topic into leader election and halted message processing across all services for 12 minutes."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "kafka-rebalance"
+  },
+  {
+    "id": "INC-1022",
+    "svc": "postgres",
+    "sev": 2,
+    "title": "Disk I/O saturation on EBS volume due to unindexed foreign key lookup",
+    "cause": "New release added payment_events table without index on order_id, causing nested loop sequential scans on 40M rows.",
+    "error_log": "iostat showing 100% %util on /dev/nvme1n1; read IOPS throttled at 3000 baseline",
+    "fix_worked": "Created index concurrently: CREATE INDEX CONCURRENTLY idx_payment_events_order_id ON payment_events(order_id);",
+    "fixes_failed": [
+      "Ran 'CREATE INDEX idx_payment_events_order_id ON payment_events(order_id)' without CONCURRENTLY. This locked the table and blocked checkout transactions."
+    ],
+    "resolver": "Kenji Sato (DBA Team)",
+    "pattern": "missing-index-io"
+  },
+  {
+    "id": "INC-1023",
+    "svc": "auth",
+    "sev": 2,
+    "title": "LDAP directory synchronization timeout locking corporate SSO",
+    "cause": "Corporate Active Directory domain controller unreachable on port 636 due to expired firewall rule, blocking internal admin logins.",
+    "error_log": "javax.naming.CommunicationException: simple bind failed: ad.corp.internal:636 [Root exception is java.net.SocketTimeoutException: connect timed out]",
+    "fix_worked": "Failed over to secondary domain controller ad2.corp.internal and restored security group egress rule.",
+    "fixes_failed": [
+      "Bypassed LDAP auth in configuration. This permitted unauthenticated access to admin endpoints and violated SOC2 compliance."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "sso-directory-timeout"
+  },
+  {
+    "id": "INC-1024",
+    "svc": "queue",
+    "sev": 3,
+    "title": "RabbitMQ file descriptor exhaustion on socket connections",
+    "cause": "Microservices opened new AMQP connection for each message instead of reusing channels on persistent connections.",
+    "error_log": "file_descriptors_used (65536/65536) limit reached. Erlang VM cannot allocate sockets.",
+    "fix_worked": "Updated client library to use connection pooling with singleton AMQP connection and pooled channels.",
+    "fixes_failed": [
+      "Increased ulimit -n to 1,000,000 on the host without patching client code. The leak consumed memory until the node ran out of RAM."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "file-descriptor-leak"
+  },
+  {
+    "id": "INC-1025",
+    "svc": "search",
+    "sev": 3,
+    "title": "Stale search results due to Kafka indexer lag",
+    "cause": "Product update events backlogged because indexer consumer batch size was 1 item per bulk request.",
+    "error_log": "Consumer lag for topic 'product-catalog-updates' is 382,000 messages (growing at 500 msg/sec)",
+    "fix_worked": "Batch-buffered consumer writes into 500-item bulk requests to Elasticsearch, clearing the lag in 4 minutes.",
+    "fixes_failed": [
+      "Restarted search indexer pods. The consumer restarted from the last committed offset and processed single records even slower."
+    ],
+    "resolver": "David Chen (MLOps)",
+    "pattern": "bulk-indexer-lag"
+  },
+  {
+    "id": "INC-1026",
+    "svc": "redis",
+    "sev": 2,
+    "title": "Redis failover replication break due to slow sync buffer overflow",
+    "cause": "Heavy write traffic exceeded client-output-buffer-limit slave 256mb 64mb 60, causing replica to disconnect and loop in full resync.",
+    "error_log": "SYNC with master failed: Client output buffer limit exceeded on replication link",
+    "fix_worked": "Increased client-output-buffer-limit slave to 1024mb 256mb 300 and enabled diskless replication in redis.conf.",
+    "fixes_failed": [
+      "Promoted the desynchronized replica to master. This wiped 3 hours of recent customer session data that had not replicated."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "redis-replication-break"
+  },
+  {
+    "id": "INC-1027",
+    "svc": "orders",
+    "sev": 2,
+    "title": "Deadlock in orders inventory reservation under concurrent flash sale",
+    "cause": "Transactions acquired row locks on items in arbitrary order instead of sorting item IDs, creating circular lock dependency.",
+    "error_log": "ERROR: deadlock detected; Process 14201 waits for ShareLock on transaction 891; Process 14205 waits for ShareLock on transaction 890",
+    "fix_worked": "Updated order checkout service to sort item IDs in ascending order before acquiring SELECT FOR UPDATE locks.",
+    "fixes_failed": [
+      "Set deadlock_timeout to 10ms. This caused 90% of checkout transactions to immediately abort without attempting to succeed."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "db-deadlock"
+  },
+  {
+    "id": "INC-1028",
+    "svc": "payments",
+    "sev": 1,
+    "title": "Payments gateway connection pool starvation and database connection drop",
+    "cause": "Postgres max_connections saturated due to leaked connections in payments settlement batch job.",
+    "error_log": "FATAL: sorry, too many clients already (max_connections=350 reached) from payments pod",
+    "fix_worked": "Terminated idle payments settlement connections with pg_terminate_backend and capped batch job pool size to 5.",
+    "fixes_failed": [
+      "CRITICAL: Restarting payments pods triggered a reconnection wave that kept Postgres CPU at 100% for 30 minutes."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "db-pool-exhaustion"
+  },
+  {
+    "id": "INC-1029",
+    "svc": "api-gateway",
+    "sev": 2,
+    "title": "Kong Ingress memory leak caused by unbuffered lua logging plugin",
+    "cause": "Custom Lua logging plugin appended raw request bodies to global table without clearing references, leaking memory in Lua VM.",
+    "error_log": "luajit: not enough memory while running log phase in custom-audit-logger",
+    "fix_worked": "Disabled custom-audit-logger plugin and migrated to native OpenTelemetry sidecar collector.",
+    "fixes_failed": [
+      "Increased container memory limit to 8GB. LuaJIT has a 2GB 32-bit address space ceiling and crashed anyway."
+    ],
+    "resolver": "Devon Vance (Platform Lead)",
+    "pattern": "lua-memory-leak"
+  },
+  {
+    "id": "INC-1030",
+    "svc": "ml-ranker",
+    "sev": 3,
+    "title": "CPU throttling on ML ranker pods due to CFS quota period mismatch",
+    "cause": "Kubernetes CPU limit was set to 2.0 cores with default CFS quota period 100ms; multi-threaded numpy burst exceeded quota in first 20ms.",
+    "error_log": "container_cpu_cfs_throttled_periods_total increasing at 85% rate; latency spike to 450ms",
+    "fix_worked": "Set OMP_NUM_THREADS=2 and adjusted cpu limits to match requests (guaranteed QoS class).",
+    "fixes_failed": [
+      "Set cpu requests to 0.1 cores. This resulted in node eviction during high cluster utilization."
+    ],
+    "resolver": "David Chen (MLOps)",
+    "pattern": "cfs-throttling"
+  },
+  {
+    "id": "INC-1031",
+    "svc": "postgres",
+    "sev": 2,
+    "title": "Transaction ID wraparound emergency shutdown threshold approaching",
+    "cause": "Forgotten long-lived prepared transaction (from aborted two-phase commit) held back datfrozenxid for 14 days.",
+    "error_log": "WARNING: oldest active transaction ID is 200,000,000 away from wraparound shutdown",
+    "fix_worked": "Identified orphaned prepared transaction via pg_prepared_xacts and executed ROLLBACK PREPARED 'tx_settlement_01'.",
+    "fixes_failed": [
+      "Ran VACUUM FULL. This failed immediately because the transaction ID could not advance past the blocking prepared transaction."
+    ],
+    "resolver": "Kenji Sato (DBA Team)",
+    "pattern": "db-prepared-tx-leak"
+  },
+  {
+    "id": "INC-1032",
+    "svc": "auth",
+    "sev": 2,
+    "title": "Bcrypt hashing CPU saturation causing login queuing",
+    "cause": "Bcrypt work factor was increased from 10 to 14 in configuration, increasing CPU calculation time from 80ms to 1280ms per password hash.",
+    "error_log": "Thread starvation: CPU at 99.8% in org.mindrot.jbcrypt.BCrypt.hashpw; login queue depth 1,200",
+    "fix_worked": "Reverted work factor to 10 in AuthConfig and implemented rate limiting on /login endpoint.",
+    "fixes_failed": [
+      "Scaled auth pod count from 4 to 16 without reverting work factor. Saturated all physical node CPUs in the cluster."
+    ],
+    "resolver": "Sarah Chen (Staff SRE)",
+    "pattern": "cpu-hash-saturation"
+  },
+  {
+    "id": "INC-1033",
+    "svc": "queue",
+    "sev": 2,
+    "title": "Kafka partition skew causing single consumer lag backlog",
+    "cause": "Producer was partitioning messages by date string instead of user ID, routing 100% of today's traffic to Partition 0.",
+    "error_log": "Partition 0 consumer lag: 250,000 messages. Partitions 1-15 consumer lag: 0 messages.",
+    "fix_worked": "Patched producer partitioner key to use murmur2 hash of customer_id, redistributing load evenly across all 16 partitions.",
+    "fixes_failed": [
+      "Added more consumer pods to the consumer group. In Kafka, only one consumer can read from Partition 0, so extra consumers sat completely idle."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "partition-skew"
+  },
+  {
+    "id": "INC-1034",
+    "svc": "search",
+    "sev": 2,
+    "title": "Elasticsearch JVM GC pause stop-the-world incident",
+    "cause": "Heap memory was allocated at 48GB, disabling Compressed Ordinary Object Pointers (Compressed OOPs) and ballooning memory overhead.",
+    "error_log": "[gc][young][2026-10-12T14:22:01.000] duration [14.2s], collections [1]/[14.2s], total [14.2s]/[1h], memory [32.1gb]->[28.4gb]/[48gb]",
+    "fix_worked": "Configured ES_JAVA_OPTS to -Xms31g -Xmx31g to re-enable 32-bit compressed OOPs and switched to G1GC.",
+    "fixes_failed": [
+      "Increased heap size to 64GB. Stop-the-world garbage collection pauses lengthened from 14 seconds to 38 seconds."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "jvm-gc-pause"
+  },
+  {
+    "id": "INC-1035",
+    "svc": "payments",
+    "sev": 2,
+    "title": "Outbound payment webhook TLS handshake timeout with payment gateway",
+    "cause": "DNS resolution timeout for api.partner-bank.com due to local CoreDNS pod cache overflow.",
+    "error_log": "java.net.UnknownHostException: api.partner-bank.com: Try again (CoreDNS SERVFAIL after 5000ms)",
+    "fix_worked": "Enabled NodeLocal DNSCache on worker nodes and added static fallback IP in payments pod hostAliases.",
+    "fixes_failed": [
+      "Restarted payments pods. The new pods also failed CoreDNS lookup and failed liveness probe, entering CrashLoopBackOff."
+    ],
+    "resolver": "Devon Vance (Platform Lead)",
+    "pattern": "dns-resolution-timeout"
+  },
+  {
+    "id": "INC-1036",
+    "svc": "orders",
+    "sev": 3,
+    "title": "Redis lock lease expiration before long checkout transaction finished",
+    "cause": "Payment gateway processing took 6 seconds, but Redis distributed lock TTL was hardcoded to 5 seconds, causing two checkouts to run simultaneously.",
+    "error_log": "IllegalMonitorStateException: attempt to unlock read/write lock with token that has already expired",
+    "fix_worked": "Implemented Redisson lock watchdog automatic lease extension with 30s ceiling.",
+    "fixes_failed": [
+      "Removed the distributed lock entirely to prevent lease exceptions. Caused duplicate order creation on flaky networks."
+    ],
+    "resolver": "Maya Lin (Backend Core)",
+    "pattern": "lock-lease-timeout"
+  },
+  {
+    "id": "INC-1037",
+    "svc": "api-gateway",
+    "sev": 2,
+    "title": "HTTP/2 connection leak under mobile client network dropouts",
+    "cause": "Gateway did not enforce keepalive_requests or client_body_timeout for half-closed TCP sockets from mobile cell tower handoffs.",
+    "error_log": "socket leak: 45,000 CLOSE_WAIT sockets held open in gateway-proxy",
+    "fix_worked": "Configured keepalive_timeout 65s, keepalive_requests 1000, and enabled SO_KEEPALIVE with 30s probe interval.",
+    "fixes_failed": [
+      "Restarted the edge gateway pods. Caused an instant reconnect spike from 200,000 active mobile app users that overwhelmed auth."
+    ],
+    "resolver": "Devon Vance (Platform Lead)",
+    "pattern": "socket-leak"
+  },
+  {
+    "id": "INC-1038",
+    "svc": "postgres",
+    "sev": 1,
+    "title": "Postgres shared buffers page eviction storm on heavy analytical query",
+    "cause": "Ad-hoc query performed full table scan on 200GB orders_audit table, blowing out the 16GB shared_buffers cache.",
+    "error_log": "Buffer pool hit ratio plummeted from 99.4% to 42.1%; disk read throughput peaked at 450MB/s",
+    "fix_worked": "Cancelled query via pg_cancel_backend and added pg_prewarm to restore critical hot tables to memory.",
+    "fixes_failed": [
+      "Increased shared_buffers to 48GB on a 64GB node without adjusting kernel shmmax. Postgres failed to start due to lack of OS shared memory."
+    ],
+    "resolver": "Kenji Sato (DBA Team)",
+    "pattern": "buffer-eviction"
+  },
+  {
+    "id": "INC-1039",
+    "svc": "redis",
+    "sev": 3,
+    "title": "Redis latency spike caused by KEYS * pattern scan in cron healthcheck",
+    "cause": "Monitoring probe executed 'KEYS session:*' every 30 seconds on single-threaded Redis holding 8 million keys.",
+    "error_log": "redis-cli slowlog: KEYS session:* took 2840ms, blocking all single-threaded command processing",
+    "fix_worked": "Replaced KEYS command with cursor-based SCAN count 500 and cached key count metric in Redis info.",
+    "fixes_failed": [
+      "Scaled Redis vertically. Because Redis is single-threaded for core command execution, higher core count had zero effect on KEYS command blocking."
+    ],
+    "resolver": "Alex Mercer (Principal Infra)",
+    "pattern": "blocking-keys-command"
+  },
+  {
+    "id": "INC-1040",
+    "svc": "ml-ranker",
+    "sev": 4,
+    "title": "Cold-start model artifact download delay on new pod scheduling",
+    "cause": "Model weight download from S3 was 4.2GB, taking 90 seconds and triggering Kubernetes startupProbe failure.",
+    "error_log": "Readiness probe failed: HTTP probe failed with statuscode: 503 (model weights downloading)",
+    "fix_worked": "Mounted model artifacts from shared ReadWriteMany NVMe volume and pre-warmed weights on node init.",
+    "fixes_failed": [
+      "Increased startupProbe failureThreshold from 10 to 60. Pods took 15 minutes to register during autoscaling spikes."
+    ],
+    "resolver": "David Chen (MLOps)",
+    "pattern": "model-cold-start"
+  }
+]

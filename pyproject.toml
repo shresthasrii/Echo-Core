@@ -24,5 +24,8 @@ dependencies = [
 where = ["."]
 include = ["backend*"]
 
+[tool.setuptools.package-data]
+backend = ["*.html", "*.json"]
+
 [tool.vercel]
 entrypoint = "backend.main:app"

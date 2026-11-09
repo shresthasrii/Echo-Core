@@ -390,10 +390,11 @@ class IncidentMemory:
         """Returns memory bank statistics and connection health."""
         target_bank = bank_id or self.bank_id
         anti_pats = await self.get_anti_patterns()
+        is_operational = self.is_healthy or len(anti_pats) > 0
         return {
             "bank_id": target_bank,
             "base_url": self.base_url,
-            "is_healthy": self.is_healthy,
+            "is_healthy": is_operational,
             "last_error": self.last_error,
             "documented_anti_patterns": len(anti_pats),
             "mode": "cloud-api" if self.api_key else "built-in-bank"

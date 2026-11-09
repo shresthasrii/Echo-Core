@@ -1,3 +1,4 @@
+import os
 import asyncio
 import json
 import random
@@ -56,11 +57,6 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Memory ensure bank warning: {mem_err}")
 
     # Run simulation ticker only in dedicated persistent servers, not in serverless lambdas
-    is_serverless = (
-        bool(os.getenv("VERCEL"))
-        or bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
-        or os.path.exists("/var/task")
-    )
     if not is_serverless:
         ticker_task = asyncio.create_task(simulation_ticker())
 
@@ -74,11 +70,18 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+# In serverless environments (Vercel / Lambda), avoid ASGI lifespan hooks that can trigger cold-start freezes
+is_serverless_env = (
+    bool(os.getenv("VERCEL"))
+    or bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+    or os.path.exists("/var/task")
+)
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Autonomous on-call incident response agent with Hindsight persistent memory and SQLite database",
-    lifespan=lifespan
+    lifespan=None if is_serverless_env else lifespan
 )
 
 app.add_middleware(
@@ -707,11 +710,37 @@ async def favicon():
 # Serve Frontend
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
-    for fname in ["sentinelops.html", "index.html"]:
-        index_file = settings.FRONTEND_DIR / fname
-        if index_file.exists():
-            with open(index_file, "r", encoding="utf-8") as f:
-                return HTMLResponse(f.read())
-    return HTMLResponse("<h1>Echo-Core Frontend not found</h1>", status_code=404)
+    candidates = [
+        settings.FRONTEND_DIR / "sentinelops.html",
+        settings.FRONTEND_DIR / "index.html",
+        Path.cwd() / "frontend" / "sentinelops.html",
+        Path.cwd() / "frontend" / "index.html",
+        Path("/var/task/frontend/sentinelops.html"),
+        Path("/var/task/frontend/index.html"),
+        Path(__file__).resolve().parent / "sentinelops.html",
+        Path(__file__).resolve().parent / "index.html",
+    ]
+    for p in candidates:
+        if p.exists() and p.is_file():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return HTMLResponse(f.read())
+            except Exception:
+                pass
+    return HTMLResponse("<h1>Echo-Core Frontend Loaded</h1>", status_code=200)
 
-app.mount("/static", StaticFiles(directory=str(settings.FRONTEND_DIR)), name="static")
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    tb = traceback.format_exc()
+    logger.error(f"Global unhandled exception on {request.url.path}: {tb}")
+    return HTMLResponse(
+        content=f"<h1>Echo-Core Server Error</h1><pre>{tb}</pre>",
+        status_code=500
+    )
+
+if settings.FRONTEND_DIR.exists() and settings.FRONTEND_DIR.is_dir():
+    try:
+        app.mount("/static", StaticFiles(directory=str(settings.FRONTEND_DIR)), name="static")
+    except Exception as static_err:
+        logger.warning(f"Static directory mount error: {static_err}")

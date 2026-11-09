@@ -28,9 +28,38 @@ class Settings:
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
     
-    # Paths
-    SEED_DATA_PATH: Path = BASE_DIR / "data" / "seed_incidents.json"
-    FRONTEND_DIR: Path = BASE_DIR / "frontend"
+    # Paths with dynamic fallback for Vercel / serverless containers
+    @property
+    def SEED_DATA_PATH(self) -> Path:
+        candidates = [
+            BASE_DIR / "data" / "seed_incidents.json",
+            BASE_DIR / "backend" / "seed_incidents.json",
+            Path.cwd() / "data" / "seed_incidents.json",
+            Path.cwd() / "backend" / "seed_incidents.json",
+            Path("/var/task/data/seed_incidents.json"),
+            Path("/var/task/backend/seed_incidents.json"),
+            Path(__file__).resolve().parent / "seed_incidents.json",
+        ]
+        for c in candidates:
+            if c.exists() and c.is_file():
+                return c
+        return BASE_DIR / "data" / "seed_incidents.json"
+
+    @property
+    def FRONTEND_DIR(self) -> Path:
+        candidates = [
+            BASE_DIR / "frontend",
+            BASE_DIR / "backend",
+            Path.cwd() / "frontend",
+            Path.cwd() / "backend",
+            Path("/var/task/frontend"),
+            Path("/var/task/backend"),
+            Path(__file__).resolve().parent,
+        ]
+        for c in candidates:
+            if c.exists() and c.is_dir():
+                return c
+        return BASE_DIR / "frontend"
 
     @property
     def SQLITE_DB_PATH(self) -> Path:
