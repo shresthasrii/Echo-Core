@@ -11,6 +11,7 @@ load_dotenv(BASE_DIR / ".env")
 class Settings:
     PROJECT_NAME: str = "Echo-Core Incident Response Agent"
     VERSION: str = "2.0.0"
+    BASE_DIR: Path = BASE_DIR
     
     # Hindsight Configuration
     HINDSIGHT_BASE_URL: str = os.getenv("HINDSIGHT_BASE_URL", "https://api.hindsight.vectorize.io")
@@ -30,5 +31,6 @@ class Settings:
     # Paths
     SEED_DATA_PATH: Path = BASE_DIR / "data" / "seed_incidents.json"
     FRONTEND_DIR: Path = BASE_DIR / "frontend"
+    SQLITE_DB_PATH: Path = BASE_DIR / "data" / "echo_core.db"
 
 settings = Settings()

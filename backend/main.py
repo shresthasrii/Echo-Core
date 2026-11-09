@@ -15,9 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.config import settings
+from backend.database import db
 from backend.memory import memory
 from backend.agent import agent
 from backend.simulator import sim, DEMO_SCENARIOS
+from backend.assistant import assistant
 from scripts.seed_memory import seed_memory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -38,7 +40,8 @@ async def simulation_ticker():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global ticker_task
-    logger.info("Starting Echo-Core backend...")
+    logger.info("Starting Echo-Core backend with SQLite persistence...")
+    db.init_db()
     asyncio.create_task(memory.ensure_bank())
     ticker_task = asyncio.create_task(simulation_ticker())
     yield
@@ -50,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Autonomous on-call incident response agent with Hindsight persistent memory",
+    description="Autonomous on-call incident response agent with Hindsight persistent memory and SQLite database",
     lifespan=lifespan
 )
 
@@ -81,21 +84,40 @@ class ResolveRequest(BaseModel):
     resolver: Optional[str] = "Sarah Chen (Staff SRE)"
     rating: Optional[int] = 5
 
+class ChatRequest(BaseModel):
+    message: str
+    incident_id: Optional[str] = None
+    session_id: Optional[str] = "default"
+
+class SuggestionApproveRequest(BaseModel):
+    actor: Optional[str] = "Sarah Chen (Staff SRE)"
+
+class SuggestionRejectRequest(BaseModel):
+    reason: Optional[str] = "Manual operator override"
+    actor: Optional[str] = "Sarah Chen (Staff SRE)"
+
 # REST Endpoints
 @app.get("/api/health")
 async def health_check():
     stats = await memory.get_stats()
+    db_stats = await db.get_db_stats()
     return {
         "status": "healthy",
         "project": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "hindsight": stats,
+        "database": db_stats,
         "active_incidents": len([i for i in sim.incidents.values() if i.get("status") == "active"])
     }
 
 @app.get("/api/incidents")
 async def list_incidents():
     return list(sim.incidents.values())
+
+@app.get("/api/incidents/history")
+async def get_incident_history(limit: int = 50):
+    """Returns resolved incidents stored permanently in SQLite database."""
+    return await db.get_history_incidents(limit=limit)
 
 @app.get("/api/incidents/{inc_id}")
 async def get_incident(inc_id: str):
@@ -109,6 +131,7 @@ async def get_incident(inc_id: str):
         inc["generic_briefing"] = analysis["generic"]
         inc["comparison"] = analysis.get("comparison", {})
         inc["recalled_items"] = analysis["recalled_items"]
+        await db.save_incident(inc)
 
     return inc
 
@@ -128,6 +151,7 @@ async def simulate_incident(req: SimulateRequest):
     inc["generic_briefing"] = analysis["generic"]
     inc["comparison"] = analysis.get("comparison", {})
     inc["recalled_items"] = analysis["recalled_items"]
+    await db.save_incident(inc)
 
     return {
         "incident": inc,
@@ -138,7 +162,7 @@ async def simulate_incident(req: SimulateRequest):
 async def trigger_cascade():
     """
     Triggers multi-service cascading outage across the dependency topology.
-    Analyzes all cascade incidents concurrently in parallel.
+    Analyzes all cascade incidents concurrently in parallel and persists to SQLite.
     """
     cascade_incidents = sim.trigger_cascade()
 
@@ -148,6 +172,7 @@ async def trigger_cascade():
         inc["generic_briefing"] = analysis["generic"]
         inc["comparison"] = analysis.get("comparison", {})
         inc["recalled_items"] = analysis["recalled_items"]
+        await db.save_incident(inc)
         return inc
 
     analyzed = await asyncio.gather(*[_analyze_one(inc) for inc in cascade_incidents])
@@ -178,6 +203,7 @@ async def run_command(inc_id: str, req: CommandRequest):
     })
     
     result["safety_check"] = safety_check
+    await db.save_incident(inc)
     return result
 
 @app.post("/api/incidents/{inc_id}/resolve")
@@ -202,13 +228,22 @@ async def resolve_incident(inc_id: str, req: ResolveRequest, background_tasks: B
     sim.p95 = round(random.uniform(142.0, 185.0), 1)
     sim.err = round(random.uniform(0.12, 0.40), 2)
 
+    await db.save_incident(inc)
+    await db.log_audit(
+        action="INCIDENT_RESOLVE",
+        incident_id=inc_id,
+        svc=inc["svc"],
+        actor=req.resolver or "On-Call SRE",
+        details=f"Resolution note: {req.notes} (Worked: {req.worked}, Rating: {req.rating}/5)"
+    )
+
     background_tasks.add_task(memory.retain_incident, inc, feedback)
 
     return {
         "success": True,
         "incident_id": inc_id,
         "retained": True,
-        "message": f"Incident {inc_id} resolved and retained into Hindsight memory."
+        "message": f"Incident {inc_id} resolved, stored in SQLite database, and retained into Hindsight memory."
     }
 
 @app.get("/api/incidents/{inc_id}/verify")
@@ -252,19 +287,20 @@ async def generate_postmortem(inc_id: str):
 **Reported At:** {t_start}  
 **Lead Resolver:** {inc.get('resolver', brief.get('resolver', 'Sarah Chen (Staff SRE)'))}  
 **Memory Bank:** `{settings.HINDSIGHT_BANK_ID}`
+**Persistence:** Stored in SQLite Database (`echo_core.db`)
 
 ---
 
 ## 1. Executive Summary
 On {t_start}, an alert was triggered on `{inc['svc']}` with title: **"{inc.get('title')}"**.
-The issue was analyzed by Echo-Core using persistent Hindsight team memory.
+The issue was analyzed by Echo-Core using persistent Hindsight team memory and SQLite audit logging.
 The root cause was identified as:
 > *{brief.get('likely_cause', inc.get('cause'))}*
 
 ---
 
 ## 2. Root Cause & Historical Context
-- **Historical Recurrence:** Matched past incidents in team bank `acme-sre`.
+- **Historical Recurrence:** Matched past incidents in team bank `{settings.HINDSIGHT_BANK_ID}`.
 - **Confidence Level:** {brief.get('confidence', 'High (Memory Matched)')}
 - **Retrieved Memory References:** {', '.join(brief.get('recalled_refs', ['INC-1001']))}
 
@@ -294,12 +330,210 @@ The root cause was identified as:
 
 ## 5. Lessons Learned & Knowledge Retention
 1. **Automated Memory Ingestion:** This resolution and engineer feedback have been retained into Hindsight bank `{settings.HINDSIGHT_BANK_ID}`.
-2. Future on-call engineers facing similar symptoms on `{inc['svc']}` will immediately recall this post-mortem and mitigation path.
+2. **Persistent Audit Trail:** Incident lifecycle and execution checkpoints are recorded in SQLite `audit_log` table.
+3. Future on-call engineers facing similar symptoms on `{inc['svc']}` will immediately recall this post-mortem and mitigation path.
 
 *Generated autonomously by Echo-Core Incident Response Agent.*
 """
     return PlainTextResponse(markdown, media_type="text/markdown")
 
+# ====================
+# CHATBOT ENDPOINTS
+# ====================
+@app.post("/api/chat")
+async def chat_with_assistant(req: ChatRequest):
+    """
+    Interactive SRE Assistant chat endpoint.
+    Synthesizes overload triage guidance and proposes approval-gated mitigation actions.
+    """
+    res = await assistant.answer_query(
+        user_message=req.message,
+        incident_id=req.incident_id,
+        session_id=req.session_id or "default"
+    )
+    return res
+
+@app.get("/api/chat/history")
+async def get_chat_history(session_id: str = "default", limit: int = 50):
+    """Retrieves chat message history from SQLite database."""
+    messages = await db.get_chat_history(session_id=session_id, limit=limit)
+    return {"session_id": session_id, "messages": messages}
+
+@app.post("/api/chat/clear")
+async def clear_chat(session_id: str = "default"):
+    """Clears chat messages for session."""
+    await db.clear_chat_history(session_id=session_id)
+    return {"success": True, "message": "Chat history cleared."}
+
+# ====================
+# APPROVAL GATE ENDPOINTS
+# ====================
+@app.get("/api/suggestions")
+async def list_suggestions(status: Optional[str] = None, limit: int = 50):
+    """Lists approval-gated AI mitigation suggestions."""
+    return await db.list_suggestions(status=status, limit=limit)
+
+@app.post("/api/suggestions/{sug_id}/approve")
+async def approve_suggestion(sug_id: int, req: SuggestionApproveRequest):
+    """
+    User clicks 'Allow': executes the AI proposed mitigation action,
+    eases system telemetry, marks suggestion as approved, and logs to audit trail.
+    """
+    sug = await db.get_suggestion(sug_id)
+    if not sug:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if sug["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Suggestion already {sug['status']}")
+
+    svc = sug["svc"]
+    inc_id = sug["incident_id"]
+    command_str = sug["command"]
+
+    # Pre-flight safety verification
+    safety_check = await agent.check_command_safety(svc, command_str)
+    if safety_check.get("is_dangerous") and "PROHIBITED" in safety_check.get("warning", ""):
+        raise HTTPException(status_code=400, detail=f"Safety check blocked: {safety_check.get('warning')}")
+
+    # Execute mitigation
+    exec_result = sim.execute_command(inc_id, "mitigate", command_str)
+    exec_message = exec_result.get("message", "Mitigation executed successfully.")
+
+    # Ease cluster telemetry metrics
+    sim.p95 = max(138.0, round(sim.p95 * 0.60, 1))
+    sim.err = max(0.12, round(sim.err * 0.35, 2))
+
+    # Update suggestion in SQLite
+    updated = await db.update_suggestion_status(
+        sug_id=sug_id,
+        status="approved",
+        actor=req.actor or "On-Call SRE",
+        execution_result=exec_message
+    )
+
+    # Log to audit trail
+    await db.log_audit(
+        action="SUGGESTION_APPROVE",
+        incident_id=inc_id,
+        svc=svc,
+        actor=req.actor or "On-Call SRE",
+        details=f"Approved AI Action: '{sug['action_title']}' -> {exec_message}"
+    )
+
+    # Add stream log
+    sim.logs.insert(0, {
+        "t": int(asyncio.get_event_loop().time() * 1000),
+        "l": "INFO",
+        "s": svc,
+        "m": f"✅ [APPROVAL-GATE] Action '{sug['action_title']}' authorized by {req.actor}. Command executed: {command_str}"
+    })
+
+    # Append system message to chat
+    await db.save_chat_message(
+        role="assistant",
+        content=f"✅ **Action Authorized & Executed:** `{sug['action_title']}` on `{svc}`.\n- **Result:** {exec_message}\n- Cluster telemetry stabilized (p95: {sim.p95}ms, Error: {sim.err}%).",
+        incident_id=inc_id
+    )
+
+    return {
+        "success": True,
+        "suggestion": updated,
+        "execution_result": exec_result,
+        "metrics": {"p95": sim.p95, "err": sim.err}
+    }
+
+@app.post("/api/suggestions/{sug_id}/reject")
+async def reject_suggestion(sug_id: int, req: SuggestionRejectRequest):
+    """
+    User clicks 'Reject': discards the AI proposed suggestion without executing.
+    """
+    sug = await db.get_suggestion(sug_id)
+    if not sug:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if sug["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Suggestion already {sug['status']}")
+
+    updated = await db.update_suggestion_status(
+        sug_id=sug_id,
+        status="rejected",
+        actor=req.actor or "On-Call SRE",
+        rejected_reason=req.reason or "Rejected by operator"
+    )
+
+    await db.log_audit(
+        action="SUGGESTION_REJECT",
+        incident_id=sug["incident_id"],
+        svc=sug["svc"],
+        actor=req.actor or "On-Call SRE",
+        details=f"Rejected AI Action '{sug['action_title']}': {req.reason}"
+    )
+
+    # Append notification in chat
+    await db.save_chat_message(
+        role="assistant",
+        content=f"❌ **Action Rejected by Operator:** `{sug['action_title']}` on `{sug['svc']}`. (Reason: {req.reason})",
+        incident_id=sug["incident_id"]
+    )
+
+    return {
+        "success": True,
+        "suggestion": updated
+    }
+
+@app.post("/api/incidents/{inc_id}/suggest")
+async def generate_incident_suggestion(inc_id: str):
+    """Explicitly triggers AI to formulate an approval-gated proposal for this incident."""
+    inc = sim.incidents.get(inc_id)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    briefing = inc.get("briefing", {})
+    cmd = briefing.get("command", f"kubectl scale deploy/{inc['svc']} --replicas=5")
+    title = briefing.get("command_label", f"Mitigate {inc['svc'].upper()} Pressure")
+    rec = briefing.get("recommended_fix", "Apply connection pool configuration and safe horizontal pod scaling.")
+
+    sug = await db.create_suggestion(
+        incident_id=inc_id,
+        svc=inc["svc"],
+        action_title=f"AI Proposed: {title}",
+        recommendation=rec,
+        command=cmd,
+        risk_level="LOW" if "scale" in cmd or "patch" in cmd else "MODERATE",
+        reasoning=f"Generated from memory briefing of {inc_id} ({briefing.get('confidence', 'Memory-backed')})."
+    )
+
+    await db.log_audit(
+        action="SUGGESTION_CREATE",
+        incident_id=inc_id,
+        svc=inc["svc"],
+        actor="Echo-Core Agent",
+        details=f"Proposed mitigation: {sug['action_title']}"
+    )
+
+    return sug
+
+# ====================
+# DATABASE & AUDIT ENDPOINTS
+# ====================
+@app.get("/api/database/stats")
+async def get_database_stats():
+    """Returns database size, incident count, alert count, and suggestion count."""
+    return await db.get_db_stats()
+
+@app.get("/api/database/alerts")
+async def get_database_alerts(limit: int = 50):
+    """Returns persisted alert feed."""
+    return await db.get_alerts(limit=limit)
+
+@app.get("/api/audit")
+async def get_audit_trail(limit: int = 100):
+    """Returns operator and agent audit trail."""
+    return await db.get_audit_logs(limit=limit)
+
+# ====================
+# MEMORY ENDPOINTS
+# ====================
 @app.get("/api/memory/stats")
 async def memory_stats():
     return await memory.get_stats()
@@ -337,6 +571,12 @@ async def sse_events(request: Request):
             if sim.logs:
                 last_log_t = sim.logs[0]["t"]
 
+            # Quick DB counts for UI pills
+            db_stats = {
+                "active_incidents": len(active_list),
+                "is_healthy": True
+            }
+
             payload = {
                 "metrics": {
                     "rps": sim.rps,
@@ -347,6 +587,7 @@ async def sse_events(request: Request):
                 },
                 "incidents": active_list,
                 "logs": new_logs,
+                "database": db_stats,
                 "hindsight": {
                     "is_healthy": memory.is_healthy,
                     "last_error": memory.last_error

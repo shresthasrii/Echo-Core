@@ -164,6 +164,94 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
 .delta-box b{color:var(--ac)}
 .ap-item{border-bottom:1px solid var(--bd);padding:8px 0}
 .ap-item:last-child{border-bottom:0}
+
+/* SRE AI COPILOT & CHAT WIDGET */
+#chatWidget{position:fixed;bottom:20px;right:20px;z-index:90}
+#chatToggleBtn{
+  display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--ac),var(--g2));
+  color:#000;border:0;border-radius:99px;padding:10px 18px;font-weight:700;font-size:13px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);cursor:pointer;transition:transform .2s,box-shadow .2s;
+}
+#chatToggleBtn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,0.45)}
+#chatToggleBadge{background:#ff4d6d;color:#fff;border-radius:99px;padding:2px 7px;font-size:11px;font-weight:800;animation:pulse 1.8s infinite;}
+@keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+#chatPanel{
+  display:none;position:fixed;bottom:76px;right:20px;width:min(450px,calc(100vw - 32px));
+  height:620px;max-height:calc(100vh - 96px);background:var(--sf);border:1px solid var(--bd);
+  border-radius:var(--r);box-shadow:0 16px 48px rgba(0,0,0,0.6);flex-direction:column;
+  overflow:hidden;z-index:95;animation:in .25s;
+}
+#chatPanel.open{display:flex}
+.chat-head{
+  display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+  background:var(--sf2);border-bottom:1px solid var(--bd);
+}
+.chat-chips{
+  display:flex;gap:6px;padding:8px 12px;background:var(--sf);overflow-x:auto;
+  border-bottom:1px solid var(--bd);scrollbar-width:none;
+}
+.chat-chip{
+  border:1px solid var(--bd);background:var(--sf2);color:var(--mu);border-radius:99px;
+  padding:4px 10px;font-size:11px;white-space:nowrap;cursor:pointer;transition:border-color .2s,color .2s;
+}
+.chat-chip:hover{border-color:var(--ac);color:var(--tx)}
+.chat-msgs{
+  flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;
+}
+.chat-msg{
+  max-width:92%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.45;
+}
+.chat-msg.user{
+  align-self:flex-end;background:var(--ac);color:var(--bg);font-weight:500;
+  border-bottom-right-radius:2px;
+}
+.chat-msg.assistant{
+  align-self:flex-start;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);
+  border-bottom-left-radius:2px;
+}
+.chat-msg.assistant p{margin:4px 0}
+.chat-msg.assistant ul,.chat-msg.assistant ol{margin:4px 0;padding-left:18px}
+.chat-msg.assistant code{
+  background:rgba(0,0,0,0.3);padding:2px 5px;border-radius:4px;font-size:12px;font-family:var(--fm);
+}
+.chat-foot{
+  padding:10px 14px;background:var(--sf2);border-top:1px solid var(--bd);display:flex;gap:8px;
+}
+.chat-foot input{
+  flex:1;background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:8px 12px;
+  color:var(--tx);font:inherit;outline:none;
+}
+.chat-foot input:focus{border-color:var(--ac)}
+
+/* APPROVAL GATE CARD */
+.sug-card{
+  background:rgba(123,216,143,0.08);border:1px solid var(--ok);border-left:5px solid var(--ok);
+  border-radius:8px;padding:12px;margin:8px 0;display:flex;flex-direction:column;gap:6px;
+}
+.sug-head{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px}
+.sug-risk{font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.sug-risk.LOW{background:rgba(123,216,143,0.25);color:var(--ok)}
+.sug-risk.MODERATE{background:rgba(246,239,106,0.25);color:var(--s3)}
+.sug-risk.HIGH{background:rgba(255,168,122,0.25);color:var(--s2)}
+.sug-risk.CRITICAL{background:rgba(255,107,87,0.25);color:var(--s1)}
+.sug-cmd{background:rgba(0,0,0,0.45);border:1px solid var(--bd);padding:6px 10px;border-radius:6px;font-family:var(--fm);font-size:12px;margin:4px 0;overflow-wrap:anywhere}
+.sug-acts{display:flex;gap:8px;margin-top:6px;align-items:center}
+.sug-btn-allow{background:var(--ok);color:#000;border:0;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.sug-btn-allow:hover{opacity:0.9}
+.sug-btn-reject{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.sug-btn-reject:hover{color:var(--s1);border-color:var(--s1)}
+.sug-status-badge{font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px}
+.sug-status-badge.approved{background:rgba(123,216,143,0.2);color:var(--ok);border:1px solid var(--ok)}
+.sug-status-badge.rejected{background:rgba(255,107,87,0.2);color:var(--s1);border:1px solid var(--s1)}
+
+/* DATABASE & AUDIT TABLE */
+.audit-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.audit-table th,.audit-table td{padding:8px 10px;border-bottom:1px solid var(--bd);text-align:left}
+.audit-table th{color:var(--mu);font-weight:600;background:var(--sf2)}
+.db-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.db-card{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:10px;text-align:center}
+.db-card b{font-size:22px;display:block;color:var(--ac);font-family:var(--fh)}
+.db-card small{color:var(--mu);font-size:11px}
 </style></head>
 <body class="loading">
 <header>
@@ -174,7 +262,9 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
 <button class="btn demo" id="bDemo5" title="Demo 5: Similar past incident recall">Demo 5 (Pattern Match)</button>
 <button class="btn demo" id="bDemo20" title="Demo 20: Star Feature - Critical Warning on Failed Fix">Demo 20 (Failed Fix Warning)</button>
 <button class="btn demo" id="bCascade" title="Demo Cascade: Multi-service outage cascade">Cascade Outage</button>
-<button class="btn accent" id="bMemExp" title="Search and explore Hindsight memory bank">🧠 Memory Explorer</button>
+<button class="btn pri" id="bApprovals" title="View pending AI mitigation actions requiring approval">🛡️ Approvals <span id="appBadge" class="dedup-badge" style="display:none;background:var(--ok);color:#000">0</span></button>
+<button class="btn accent" id="bDbAudit" title="Inspect SQLite Database records and Audit Trail">🗄️ Database & Audit</button>
+<button class="btn accent" id="bMemExp" title="Search and explore Hindsight memory bank">🧠 Memory</button>
 <button class="btn accent" id="bAntiPat" title="View team anti-patterns catalog">🚨 Anti-Patterns</button>
 <button class="btn" id="bInc" title="Simulate a new incident">Simulate Random</button>
 <button class="btn" id="bClr" title="Clear open incidents">Clear Queue</button>
@@ -201,6 +291,85 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
 <div class="empty" id="logEmpty" hidden><b>No matching log lines</b><p>Nothing matches this search and level.</p><button class="btn sm" id="lClr">Clear search</button></div></div><div class="skel"></div></section>
 </main>
 <div id="toasts" aria-live="polite"></div>
+
+<!-- FLOATING SRE AI COPILOT WIDGET -->
+<div id="chatWidget">
+  <button id="chatToggleBtn">
+    <span>🤖 SRE Copilot</span>
+    <span id="chatToggleBadge" style="display:none">0</span>
+  </button>
+  <div id="chatPanel">
+    <div class="chat-head">
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--ac)"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.38-1 1.72V7h2a5 5 0 0 1 5 5v1h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1v1a5 5 0 0 1-5 5h-2v1.28c.6.34 1 .98 1 1.72a2 2 0 1 1-4 0c0-.74.4-1.38 1-1.72V22h-2a5 5 0 0 1-5-5v-1H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h1v-1a5 5 0 0 1 5-5h2V5.72c-.6-.34-1-.98-1-1.72a2 2 0 0 1 2-2Z"/></svg>
+        <div>
+          <b style="font-size:14px">Echo-Core SRE Assistant</b><br>
+          <small style="color:var(--mu);font-size:11px">Tri-Model Fallback • Approval Gate</small>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm" id="chatClearBtn" title="Clear chat history" style="font-size:11px;padding:2px 7px">🧹</button>
+        <button class="btn sm" id="chatCloseBtn" style="font-size:11px;padding:2px 7px">✕</button>
+      </div>
+    </div>
+    <div class="chat-chips">
+      <button class="chat-chip" data-q="What should I do right now? Systems are overloading!">🔥 Overload Help</button>
+      <button class="chat-chip" data-q="Triage cascading outage root cause and suggest mitigation">💥 Triage Cascade</button>
+      <button class="chat-chip" data-q="Propose a safe mitigation for active incidents">💡 Suggest Mitigation</button>
+      <button class="chat-chip" data-q="Is it safe to restart payments deployment pods?">⚠️ Check Anti-Pattern</button>
+    </div>
+    <div class="chat-msgs" id="chatMsgs">
+      <div class="chat-msg assistant">
+        <p>👋 <b>Hello SRE!</b> I am Echo-Core's interactive on-call assistant.</p>
+        <p>I monitor real-time cluster telemetry, evaluate historical runbooks, and formulate mitigation plans. All suggested commands are gated by the <b>Approval Gate</b> — I will <i>never</i> execute until you review and click <b>Allow</b>.</p>
+      </div>
+    </div>
+    <form class="chat-foot" id="chatForm">
+      <input id="chatIn" placeholder="Ask on-call assistant (e.g. 'What should I do for payments?')..." autocomplete="off">
+      <button class="btn pri sm" type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<!-- APPROVALS QUEUE MODAL -->
+<dialog id="appDlg" style="width:min(700px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">🛡️ AI Mitigation Approvals Queue</h3>
+    <button class="btn sm" id="appRefresh">Refresh</button>
+  </div>
+  <p style="margin:0 0 12px;color:var(--mu);font-size:13px">
+    Human-in-the-Loop Safety Gate: AI recommends proactive mitigations but halts execution until authorized by an engineer.
+  </p>
+  <div id="appList" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px">
+    <p style="color:var(--mu)">Loading pending suggestions...</p>
+  </div>
+  <div class="dact"><button class="btn" id="appClose">Close</button></div>
+</dialog>
+
+<!-- SQLITE DATABASE & AUDIT TRAIL MODAL -->
+<dialog id="dbDlg" style="width:min(820px,calc(100vw - 24px))">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">🗄️ SQLite Database Persistence & Audit Trail</h3>
+    <button class="btn sm" id="dbRefresh">Refresh</button>
+  </div>
+  <div class="db-grid" id="dbStatsGrid">
+    <div class="db-card"><b id="dbCountInc">–</b><small>Total Incidents</small></div>
+    <div class="db-card"><b id="dbCountAlerts">–</b><small>Alerts Persisted</small></div>
+    <div class="db-card"><b id="dbCountChat">–</b><small>Chat Messages</small></div>
+    <div class="db-card"><b id="dbCountAudit">–</b><small>Audit Events</small></div>
+  </div>
+  <div style="font-size:12px;color:var(--mu);margin-bottom:8px">
+    Database Location: <code style="display:inline;padding:2px 6px" id="dbLocationText">echo_core.db</code>
+  </div>
+  <h4 style="margin:12px 0 6px">Recent Operator & Agent Audit Trail:</h4>
+  <div style="max-height:300px;overflow:auto;border:1px solid var(--bd);border-radius:6px">
+    <table class="audit-table">
+      <thead><tr><th>Time</th><th>Action</th><th>Target</th><th>Actor</th><th>Details</th></tr></thead>
+      <tbody id="auditTableBody"><tr><td colspan="5" style="color:var(--mu);text-align:center">Loading audit log...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="dact"><button class="btn" id="dbClose">Close</button></div>
+</dialog>
 
 <!-- COMMAND CONFIRMATION DIALOG -->
 <dialog id="dlg"><h3 id="dT"></h3><p id="dD" style="margin:0;color:var(--mu)"></p><code id="dC"></code>
@@ -340,7 +509,7 @@ function renderStatus(){
   $("#dN").textContent=n;
   $("#stLg").innerHTML=[[1,"Critical"],[2,"High"],[3,"Medium"],[4,"Low"]].map(([s,nm])=>`<span data-sev="${s}"><i></i>${nm}<b>${active.filter(i=>i.sev===s).length}</b></span>`).join("");
   $("#stT").textContent=n?`${n} open incident${n===1?"":"s"}${w<=2?" requiring attention":""}`:"All systems operational";
-  $("#stD").textContent=n?(c?`${c} critical incident active. Echo-Core has synthesized memory briefings for each below.`:"Click an incident to inspect the memory-informed briefing vs generic advice."):"No active incidents. Live telemetry and logs stream continuously via SSE.";
+  $("#stD").textContent=n?(c?`${c} critical incident active. Echo-Core has synthesized memory briefings for each below.`:"Click an incident to inspect the memory-informed briefing vs generic advice."):"No active incidents. Live telemetry, alerts, and chat stream continuously with SQLite persistence.";
 }
 
 function toast(t,b,sev,act){
@@ -365,6 +534,7 @@ function elInc(i){
         <div class="brief-header">
           <span><b>Echo-Core On-Call Briefing</b></span>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button class="btn sm b-suggest" style="font-size:11px;padding:3px 8px;background:rgba(123,216,143,0.15);color:var(--ok);border-color:var(--ok)">💡 Propose Mitigation</button>
             <button class="btn sm b-comp" style="font-size:11px;padding:3px 8px">⚖️ Compare vs Generic</button>
             <button class="btn sm b-verify" style="font-size:11px;padding:3px 8px">🩺 Verify Health</button>
             <button class="btn sm b-pm" style="font-size:11px;padding:3px 8px">📄 Post-Mortem</button>
@@ -416,6 +586,23 @@ function elInc(i){
   $(".b-pm",e).onclick=evt=>{
     evt.stopPropagation();
     showPostMortemModal(i);
+  };
+
+  $(".b-suggest",e).onclick=async evt=>{
+    evt.stopPropagation();
+    const btn=$(".b-suggest",e);
+    btn.textContent="Formulating...";
+    try{
+      const res=await fetch(`/api/incidents/${i.id}/suggest`,{method:"POST"});
+      const sug=await res.json();
+      btn.textContent="💡 Propose Mitigation";
+      toast("AI Mitigation Proposed",`${sug.action_title} (Staged for human approval)`,2,()=>showApprovalsModal());
+      openChatWithSuggestion(sug);
+      refreshPendingBadges();
+    }catch(err){
+      btn.textContent="💡 Propose Mitigation";
+      toast("Suggestion error",String(err),1);
+    }
   };
 
   $(".b-verify",e).onclick=async evt=>{
@@ -626,7 +813,7 @@ $("#resGo").onclick=async()=>{
       body:JSON.stringify({notes,worked,resolver:"Sarah Chen (Staff SRE)"})
     });
     const r=await res.json();
-    toast("Incident Resolved & Retained",`Retained in Hindsight memory bank: ${worked?"Worked":"Did not work"}`,0);
+    toast("Incident Resolved & Stored in SQLite",`Retained in Hindsight memory & local DB`,0);
     i.status="resolved";
     sync();renderK();
   }catch(err){console.error("Resolve error:",err)}
@@ -833,6 +1020,293 @@ $("#bAntiPat").onclick=async()=>{
 };
 $("#antiPatClose").onclick=()=>antiPatDlg.close();
 
+/* ========================================================
+   APPROVALS QUEUE & HUMAN-IN-THE-LOOP DIALOG
+======================================================== */
+const appDlg=$("#appDlg");
+$("#bApprovals").onclick=()=>showApprovalsModal();
+$("#appClose").onclick=()=>appDlg.close();
+$("#appRefresh").onclick=()=>showApprovalsModal();
+
+async function showApprovalsModal(){
+  appDlg.showModal();
+  $("#appList").innerHTML="<p style='color:var(--mu)'>Loading AI proposed mitigations...</p>";
+  try{
+    const res=await fetch("/api/suggestions");
+    const items=await res.json();
+    if(!items.length){
+      $("#appList").innerHTML="<p style='color:var(--mu);text-align:center;padding:24px'>No pending suggestions. AI will stage mitigations when incidents or chat requests occur.</p>";
+      return;
+    }
+    $("#appList").innerHTML="";
+    items.forEach(sug=>{
+      const card=createSuggestionElement(sug);
+      $("#appList").appendChild(card);
+    });
+  }catch(e){
+    $("#appList").innerHTML=`<p style="color:var(--s1)">Error loading approvals: ${esc(e)}</p>`;
+  }
+}
+
+async function refreshPendingBadges(){
+  try{
+    const res=await fetch("/api/suggestions?status=pending");
+    const pending=await res.json();
+    const count=pending.length;
+    const b=$("#appBadge"), cb=$("#chatToggleBadge");
+    if(count>0){
+      b.style.display="inline-block";b.textContent=count;
+      cb.style.display="inline-block";cb.textContent=count;
+    }else{
+      b.style.display="none";cb.style.display="none";
+    }
+  }catch(e){}
+}
+
+function createSuggestionElement(sug){
+  const div=document.createElement("div");
+  div.className="sug-card";
+  div.id=`sug-card-${sug.id}`;
+
+  const isPending = sug.status === "pending";
+  const isApproved = sug.status === "approved";
+  const isRejected = sug.status === "rejected";
+
+  let actsHtml = "";
+  if(isPending){
+    actsHtml = `
+      <div class="sug-acts" id="sug-acts-${sug.id}">
+        <button class="sug-btn-allow" data-id="${sug.id}">✅ Allow (Execute Action)</button>
+        <button class="sug-btn-reject" data-id="${sug.id}">❌ Reject</button>
+        <small style="color:var(--mu);margin-left:auto;font-size:11px">Gated by human approval</small>
+      </div>
+    `;
+  }else if(isApproved){
+    actsHtml = `<div style="margin-top:4px"><span class="sug-status-badge approved">✅ Approved & Executed by ${esc(sug.approved_by||'SRE')}</span><br><small style="color:var(--mu);font-size:11px">${esc(sug.execution_result||'')}</small></div>`;
+  }else if(isRejected){
+    actsHtml = `<div style="margin-top:4px"><span class="sug-status-badge rejected">❌ Discarded by Operator</span> <small style="color:var(--mu);font-size:11px">(${esc(sug.rejected_reason||'Rejected')})</small></div>`;
+  }
+
+  div.innerHTML = `
+    <div class="sug-head">
+      <b>${esc(sug.action_title)}</b>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="chip" style="font-size:10px;padding:1px 6px">${esc(sug.svc)}</span>
+        <span class="sug-risk ${esc(sug.risk_level)}">${esc(sug.risk_level)} RISK</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--tx)">${esc(sug.recommendation)}</div>
+    <code class="sug-cmd">$ ${esc(sug.command)}</code>
+    <div style="font-size:11px;color:var(--mu)"><b>Reasoning:</b> ${esc(sug.reasoning || 'Derived from SRE memory & runbooks.')}</div>
+    ${actsHtml}
+  `;
+
+  if(isPending){
+    const btnAllow=$(".sug-btn-allow", div);
+    const btnReject=$(".sug-btn-reject", div);
+    btnAllow.onclick=()=>handleAllowSuggestion(sug.id, div);
+    btnReject.onclick=()=>handleRejectSuggestion(sug.id, div);
+  }
+
+  return div;
+}
+
+async function handleAllowSuggestion(sugId, cardEl){
+  const acts=$(`#sug-acts-${sugId}`, cardEl);
+  if(acts)acts.innerHTML="<span style='color:var(--ok);font-size:12px'>Executing authorized command...</span>";
+
+  try{
+    const res=await fetch(`/api/suggestions/${sugId}/approve`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({actor:"Sarah Chen (Staff SRE)"})
+    });
+    const data=await res.json();
+    if(data.success){
+      toast("Action Authorized & Executed",data.execution_result.message||"Mitigation applied",0);
+      if(acts){
+        acts.outerHTML=`<div style="margin-top:4px"><span class="sug-status-badge approved">✅ Approved & Executed by Sarah Chen</span><br><small style="color:var(--ok);font-size:11px">${esc(data.execution_result.message||'')}</small></div>`;
+      }
+      refreshPendingBadges();
+      // Add chat message
+      appendChatMsg("assistant", `✅ **Action #${sugId} Authorized:** Staged command has been executed. Telemetry easing towards baseline.`);
+    }else{
+      toast("Execution failed",data.detail||"Error",1);
+    }
+  }catch(e){
+    toast("Approval error",String(e),1);
+  }
+}
+
+async function handleRejectSuggestion(sugId, cardEl){
+  const acts=$(`#sug-acts-${sugId}`, cardEl);
+  try{
+    const res=await fetch(`/api/suggestions/${sugId}/reject`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({reason:"Manual operator override",actor:"Sarah Chen (Staff SRE)"})
+    });
+    const data=await res.json();
+    if(data.success){
+      toast("Action Discarded","Mitigation proposal rejected by operator",0);
+      if(acts){
+        acts.outerHTML=`<div style="margin-top:4px"><span class="sug-status-badge rejected">❌ Discarded by Operator</span></div>`;
+      }
+      refreshPendingBadges();
+      appendChatMsg("assistant", `❌ **Action #${sugId} Rejected:** Mitigation proposal discarded.`);
+    }
+  }catch(e){
+    toast("Rejection error",String(e),1);
+  }
+}
+
+/* ========================================================
+   SQLITE DATABASE & AUDIT TRAIL MODAL
+======================================================== */
+const dbDlg=$("#dbDlg");
+$("#bDbAudit").onclick=()=>showDatabaseModal();
+$("#dbClose").onclick=()=>dbDlg.close();
+$("#dbRefresh").onclick=()=>showDatabaseModal();
+
+async function showDatabaseModal(){
+  dbDlg.showModal();
+  try{
+    const [statsRes, auditRes] = await Promise.all([
+      fetch("/api/database/stats"),
+      fetch("/api/audit?limit=25")
+    ]);
+    const stats=await statsRes.json();
+    const audits=await auditRes.json();
+
+    $("#dbCountInc").textContent=stats.total_incidents||0;
+    $("#dbCountAlerts").textContent=stats.total_alerts||0;
+    $("#dbCountChat").textContent=stats.chat_messages||0;
+    $("#dbCountAudit").textContent=stats.audit_logs||0;
+    $("#dbLocationText").textContent=stats.db_location||"data/echo_core.db";
+
+    if(!audits.length){
+      $("#auditTableBody").innerHTML="<tr><td colspan='5' style='color:var(--mu);text-align:center'>No audit events recorded yet.</td></tr>";
+    }else{
+      $("#auditTableBody").innerHTML=audits.map(a=>`
+        <tr>
+          <td><time style="font-family:var(--fm);color:var(--mu)">${fmt(a.timestamp)}</time></td>
+          <td><b>${esc(a.action)}</b></td>
+          <td>${esc(a.svc||a.incident_id||'–')}</td>
+          <td>${esc(a.actor)}</td>
+          <td>${esc(a.details||'')}</td>
+        </tr>
+      `).join("");
+    }
+  }catch(e){
+    console.error("DB modal error:",e);
+  }
+}
+
+/* ========================================================
+   SRE AI COPILOT CHATBOT
+======================================================== */
+const chatWidget=$("#chatWidget");
+const chatPanel=$("#chatPanel");
+const chatToggleBtn=$("#chatToggleBtn");
+const chatCloseBtn=$("#chatCloseBtn");
+const chatClearBtn=$("#chatClearBtn");
+const chatForm=$("#chatForm");
+const chatIn=$("#chatIn");
+const chatMsgs=$("#chatMsgs");
+
+function toggleChat(){
+  chatPanel.classList.toggle("open");
+  if(chatPanel.classList.contains("open")){
+    chatIn.focus();
+    chatMsgs.scrollTop=chatMsgs.scrollHeight;
+  }
+}
+chatToggleBtn.onclick=toggleChat;
+chatCloseBtn.onclick=()=>chatPanel.classList.remove("open");
+
+chatClearBtn.onclick=async()=>{
+  await fetch("/api/chat/clear",{method:"POST"});
+  chatMsgs.innerHTML=`
+    <div class="chat-msg assistant">
+      <p>🧹 <i>Chat history cleared. SRE Copilot ready for on-call queries.</i></p>
+    </div>
+  `;
+  toast("Chat Cleared","Assistant conversation reset",0);
+};
+
+function appendChatMsg(role, text, suggestion){
+  const div=document.createElement("div");
+  div.className=`chat-msg ${role}`;
+  
+  // Format basic markdown for assistant
+  if(role==="assistant"){
+    let formatted = esc(text)
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+      .replace(/\*(.*?)\*/g, '<i>$1</i>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n- /g, '<br>• ')
+      .replace(/\n/g, '<br>');
+    div.innerHTML = `<p>${formatted}</p>`;
+  }else{
+    div.textContent=text;
+  }
+
+  if(suggestion){
+    const card=createSuggestionElement(suggestion);
+    div.appendChild(card);
+  }
+
+  chatMsgs.appendChild(div);
+  chatMsgs.scrollTop=chatMsgs.scrollHeight;
+}
+
+function openChatWithSuggestion(sug){
+  chatPanel.classList.add("open");
+  appendChatMsg("assistant", `💡 **Mitigation Formulated:** Below is the staged action for \`${sug.svc}\`. It will not execute until you click **Allow**.`, sug);
+}
+
+chatForm.onsubmit=async e=>{
+  e.preventDefault();
+  const msg=chatIn.value.trim();
+  if(!msg)return;
+  chatIn.value="";
+  appendChatMsg("user", msg);
+
+  // Loading indicator
+  const loadDiv=document.createElement("div");
+  loadDiv.className="chat-msg assistant";
+  loadDiv.id="chatLoading";
+  loadDiv.innerHTML="<p style='color:var(--mu)'>Echo-Core analyzing telemetry & runbooks...</p>";
+  chatMsgs.appendChild(loadDiv);
+  chatMsgs.scrollTop=chatMsgs.scrollHeight;
+
+  try{
+    const res=await fetch("/api/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message: msg})
+    });
+    const data=await res.json();
+    loadDiv.remove();
+    appendChatMsg("assistant", data.content, data.suggestion);
+    if(data.suggestion)refreshPendingBadges();
+  }catch(err){
+    loadDiv.remove();
+    appendChatMsg("assistant", `⚠️ Error contacting agent: ${esc(err)}`);
+  }
+};
+
+document.querySelectorAll(".chat-chip").forEach(chip=>{
+  chip.onclick=()=>{
+    const q=chip.dataset.q;
+    if(q){
+      chatIn.value=q;
+      chatForm.dispatchEvent(new Event("submit"));
+    }
+  };
+});
+
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
   if(!b.dataset.t)return;
   document.documentElement.dataset.theme=b.dataset.t;
@@ -872,10 +1346,10 @@ function connectSSE(){
         b.style.display="flex";
         if(data.hindsight.is_healthy){
           b.className="banner-offline ok";
-          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code> (40+ incidents retained). Agent is memory-informed.</span><span id="hsStatus" style="font-weight:600">Online</span>`;
+          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Connected to bank <code style="display:inline;padding:2px 6px;background:rgba(0,0,0,0.3)">acme-sre</code> (40+ incidents retained) • 🗄️ <b>SQLite:</b> Connected (echo_core.db)</span><span id="hsStatus" style="font-weight:600">Online</span>`;
         }else{
           b.className="banner-offline";
-          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Offline (${esc(data.hindsight.last_error||"API Key not configured")})</span><span id="hsStatus" style="font-size:12px;opacity:0.85">Running in zero-memory fallback mode</span>`;
+          b.innerHTML=`<span>🧠 <b>Hindsight Persistent Memory:</b> Offline (${esc(data.hindsight.last_error||"API Key not configured")}) • 🗄️ SQLite Active</span><span id="hsStatus" style="font-size:12px;opacity:0.85">Running in zero-memory fallback mode</span>`;
         }
       }
     }catch(e){console.error("SSE parse error:",e)}
@@ -904,4 +1378,5 @@ fetch("/api/incidents").then(r=>r.json()).then(data=>{
 });
 
 connectSSE();
+refreshPendingBadges();
 </script></body></html>

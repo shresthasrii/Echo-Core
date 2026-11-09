@@ -3,6 +3,7 @@ import random
 import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+from backend.database import db
 
 logger = logging.getLogger("echo_core.simulator")
 
@@ -69,6 +70,7 @@ class TelemetrySimulator:
     """
     Simulates real-time system metrics (RPS, p95 latency, error rate),
     live incident state machine, multi-service cascading failures, and log generation.
+    Persists all incident states, alerts, and audit trails to SQLite.
     """
     def __init__(self):
         self.rps: float = 4200.0
@@ -88,6 +90,24 @@ class TelemetrySimulator:
         self._init_default_incidents()
 
     def _init_default_incidents(self):
+        # Attempt to restore active incidents from SQLite
+        try:
+            db.init_db()
+            persisted = db.load_active_incidents_sync()
+            if persisted:
+                self.incidents = persisted
+                for inc_id in persisted:
+                    try:
+                        num = int(inc_id.replace("INC-", ""))
+                        if num > self.seq:
+                            self.seq = num
+                    except ValueError:
+                        pass
+                logger.info(f"Loaded {len(persisted)} active incidents from SQLite database.")
+                return
+        except Exception as e:
+            logger.warning(f"Error loading incidents from SQLite: {e}")
+
         t_now = int(time.time() * 1000)
         init_cases = [
             ("payments", 2, "Elevated 5xx rate on checkout API", "Upstream timeouts began after the latest deploy; client retries are amplifying load.", t_now - 250000),
@@ -97,7 +117,7 @@ class TelemetrySimulator:
         for svc, sev, title, cause, t in init_cases:
             self.seq += 1
             inc_id = f"INC-{self.seq}"
-            self.incidents[inc_id] = {
+            inc = {
                 "id": inc_id,
                 "svc": svc,
                 "sev": sev,
@@ -108,6 +128,12 @@ class TelemetrySimulator:
                 "duplicate_count": 0,
                 "status": "active"
             }
+            self.incidents[inc_id] = inc
+            try:
+                db.save_incident_sync(inc)
+                db.save_alert_sync(inc_id, svc, sev, title, cause, t)
+            except Exception:
+                pass
 
     def tick_metrics(self):
         if self.is_paused:
@@ -181,6 +207,11 @@ class TelemetrySimulator:
                 existing["sev"] = min(existing["sev"], sev)
                 existing["ev"].append([t_now, f"Merged duplicate alert (occurrences: {existing['duplicate_count'] + 1})"])
                 logger.info(f"Merged duplicate alert for {existing['id']} on {svc}")
+                try:
+                    db.save_incident_sync(existing)
+                    db.save_alert_sync(existing["id"], svc, sev, title, f"Merged duplicate alert (x{existing['duplicate_count'] + 1})", t_now)
+                except Exception:
+                    pass
                 return {
                     "incident": existing,
                     "merged": True
@@ -202,6 +233,12 @@ class TelemetrySimulator:
         }
         self.incidents[inc_id] = new_inc
         logger.info(f"Created incident {inc_id} on {svc}")
+        try:
+            db.save_incident_sync(new_inc)
+            db.save_alert_sync(inc_id, svc, sev, title, new_inc["error_log"], t_now)
+            db.log_audit_sync("INCIDENT_TRIGGER", inc_id, svc, "Monitoring System", f"Severity {sev} - {title}")
+        except Exception:
+            pass
         return {
             "incident": new_inc,
             "merged": False
@@ -238,9 +275,18 @@ class TelemetrySimulator:
             }
             self.incidents[inc_id] = inc
             created.append(inc)
+            try:
+                db.save_incident_sync(inc)
+                db.save_alert_sync(inc_id, svc, sev, title, error_log, t_now)
+            except Exception:
+                pass
             
         self.p95 = 520.0
         self.err = 6.4
+        try:
+            db.log_audit_sync("CASCADE_TRIGGER", "INC-CASCADE", "payments", "System Simulator", "4-tier cascading outage triggered")
+        except Exception:
+            pass
         return created
 
     def execute_command(self, inc_id: str, cmd_key: str, custom_cmd: Optional[str] = None) -> Dict[str, Any]:
@@ -250,6 +296,7 @@ class TelemetrySimulator:
 
         t_now = int(time.time() * 1000)
         svc = inc["svc"]
+        result: Dict[str, Any] = {}
         
         # Check known disastrous anti-patterns
         if svc == "payments" and "restart" in cmd_key.lower():
@@ -257,59 +304,75 @@ class TelemetrySimulator:
             inc["ev"].append([t_now, "FATAL: 'kubectl rollout restart' triggered connection storm on Postgres! Severity locked to CRITICAL."])
             self.err += 4.5
             self.p95 += 350.0
-            return {
+            result = {
                 "success": False,
                 "incident": inc,
                 "catastrophic": True,
                 "message": "DISASTROUS COMMAND: Pod restart caused immediate connection stampede on Postgres! Memory warned against this."
             }
 
-        if svc == "redis" and "flush" in (custom_cmd or cmd_key).lower():
+        elif svc == "redis" and "flush" in (custom_cmd or cmd_key).lower():
             inc["sev"] = 1
             inc["ev"].append([t_now, "FATAL: Cache flush triggered massive database stampede! CPU saturated at 100%."])
             self.err += 7.0
             self.p95 += 400.0
-            return {
+            result = {
                 "success": False,
                 "incident": inc,
                 "catastrophic": True,
                 "message": "DISASTROUS COMMAND: Flushing Redis cache triggered complete cache stampede on Postgres!"
             }
             
-        if cmd_key == "resolve":
+        elif cmd_key == "resolve":
             inc["status"] = "resolved"
             inc["ev"].append([t_now, "Incident marked as resolved by engineer."])
             self.p95 = round(random.uniform(142.0, 185.0), 1)
             self.err = round(random.uniform(0.12, 0.40), 2)
-            return {
+            result = {
                 "success": True,
                 "incident": inc,
                 "resolved": True,
                 "message": f"Incident {inc_id} resolved."
             }
 
-        # Successful mitigation commands relieve cluster strain
-        self.p95 = max(145.0, round(self.p95 * 0.65, 1))
-        self.err = max(0.15, round(self.err * 0.4, 2))
-
-        if inc["sev"] < 4:
-            inc["sev"] += 1
-            inc["ev"].append([t_now, f"Mitigation command '{cmd_key}' applied successfully. Severity eased to {inc['sev']}."])
-            return {
-                "success": True,
-                "incident": inc,
-                "resolved": False,
-                "message": f"Command succeeded. Severity eased to {inc['sev']}."
-            }
         else:
-            inc["status"] = "resolved"
-            inc["ev"].append([t_now, f"Final mitigation '{cmd_key}' completed. Service health recovered."])
-            return {
-                "success": True,
-                "incident": inc,
-                "resolved": True,
-                "message": f"Incident {inc_id} fully resolved."
-            }
+            # Successful mitigation commands relieve cluster strain
+            self.p95 = max(145.0, round(self.p95 * 0.65, 1))
+            self.err = max(0.15, round(self.err * 0.4, 2))
+
+            if inc["sev"] < 4:
+                inc["sev"] += 1
+                inc["ev"].append([t_now, f"Mitigation command '{cmd_key}' applied successfully. Severity eased to {inc['sev']}."])
+                result = {
+                    "success": True,
+                    "incident": inc,
+                    "resolved": False,
+                    "message": f"Command succeeded. Severity eased to {inc['sev']}."
+                }
+            else:
+                inc["status"] = "resolved"
+                inc["ev"].append([t_now, f"Final mitigation '{cmd_key}' completed. Service health recovered."])
+                result = {
+                    "success": True,
+                    "incident": inc,
+                    "resolved": True,
+                    "message": f"Incident {inc_id} fully resolved."
+                }
+
+        # Persist updated incident state and audit trail to SQLite
+        try:
+            db.save_incident_sync(inc)
+            db.log_audit_sync(
+                action="COMMAND_EXECUTE",
+                incident_id=inc_id,
+                svc=svc,
+                actor="On-Call SRE",
+                details=f"Command: '{cmd_key}' -> {result.get('message', '')} (Catastrophic: {result.get('catastrophic', False)})"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to persist command audit: {e}")
+
+        return result
 
 # Global simulator instance
 sim = TelemetrySimulator()

@@ -28,6 +28,12 @@ wheels/
 .installed.cfg
 *.egg
 
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+
 # IDE
 .vscode/
 .idea/
