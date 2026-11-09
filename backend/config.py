@@ -31,6 +31,31 @@ class Settings:
     # Paths
     SEED_DATA_PATH: Path = BASE_DIR / "data" / "seed_incidents.json"
     FRONTEND_DIR: Path = BASE_DIR / "frontend"
-    SQLITE_DB_PATH: Path = BASE_DIR / "data" / "echo_core.db"
+
+    @property
+    def SQLITE_DB_PATH(self) -> Path:
+        env_path = os.getenv("SQLITE_DB_PATH")
+        if env_path:
+            return Path(env_path)
+        # Serverless / Vercel / AWS Lambda environment detection
+        is_serverless = (
+            bool(os.getenv("VERCEL"))
+            or bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+            or os.path.exists("/var/task")
+        )
+        if is_serverless:
+            return Path("/tmp") / "echo_core.db"
+        
+        # Test if local data directory is writable
+        local_dir = BASE_DIR / "data"
+        try:
+            local_dir.mkdir(parents=True, exist_ok=True)
+            test_file = local_dir / ".write_test"
+            test_file.touch()
+            test_file.unlink()
+            return local_dir / "echo_core.db"
+        except Exception:
+            import tempfile
+            return Path(tempfile.gettempdir()) / "echo_core.db"
 
 settings = Settings()

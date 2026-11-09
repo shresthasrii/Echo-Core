@@ -41,15 +41,38 @@ async def simulation_ticker():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global ticker_task
-    logger.info("Starting Echo-Core backend with SQLite persistence...")
-    db.init_db()
-    asyncio.create_task(memory.ensure_bank())
-    ticker_task = asyncio.create_task(simulation_ticker())
+    logger.info("Starting Echo-Core backend...")
+    
+    # Initialize SQLite database with full serverless fault-tolerance
+    try:
+        db.init_db()
+    except Exception as db_err:
+        logger.warning(f"Database initialization fallback triggered: {db_err}")
+
+    # Ensure memory bank in background
+    try:
+        asyncio.create_task(memory.ensure_bank())
+    except Exception as mem_err:
+        logger.warning(f"Memory ensure bank warning: {mem_err}")
+
+    # Run simulation ticker only in dedicated persistent servers, not in serverless lambdas
+    is_serverless = (
+        bool(os.getenv("VERCEL"))
+        or bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+        or os.path.exists("/var/task")
+    )
+    if not is_serverless:
+        ticker_task = asyncio.create_task(simulation_ticker())
+
     yield
+
     logger.info("Shutting down Echo-Core backend...")
     if ticker_task:
         ticker_task.cancel()
-    await memory.close()
+    try:
+        await memory.close()
+    except Exception:
+        pass
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -684,10 +707,11 @@ async def favicon():
 # Serve Frontend
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
-    index_file = settings.FRONTEND_DIR / "sentinelops.html"
-    if not index_file.exists():
-        return HTMLResponse("<h1>Echo-Core Frontend not found</h1>", status_code=404)
-    with open(index_file, "r", encoding="utf-8") as f:
-        return HTMLResponse(f.read())
+    for fname in ["sentinelops.html", "index.html"]:
+        index_file = settings.FRONTEND_DIR / fname
+        if index_file.exists():
+            with open(index_file, "r", encoding="utf-8") as f:
+                return HTMLResponse(f.read())
+    return HTMLResponse("<h1>Echo-Core Frontend not found</h1>", status_code=404)
 
 app.mount("/static", StaticFiles(directory=str(settings.FRONTEND_DIR)), name="static")

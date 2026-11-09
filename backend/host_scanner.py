@@ -10,9 +10,9 @@ logger = logging.getLogger("echo_core.host_scanner")
 try:
     import psutil
     HAS_PSUTIL = True
-except ImportError:
+except Exception as e:
     HAS_PSUTIL = False
-    logger.warning("psutil not available; falling back to standard library platform & os metrics.")
+    logger.warning(f"psutil not available ({e}); falling back to standard library platform & os metrics.")
 
 class HostSystemScanner:
     """

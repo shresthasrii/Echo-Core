@@ -10,25 +10,39 @@ from backend.config import settings, BASE_DIR
 
 logger = logging.getLogger("echo_core.database")
 
-# Ensure parent directory exists for DB path
-DB_PATH = getattr(settings, "SQLITE_DB_PATH", BASE_DIR / "data" / "echo_core.db")
+_use_in_memory_mode: bool = False
+_shared_mem_keepalive: Optional[sqlite3.Connection] = None
 
 def _get_connection() -> sqlite3.Connection:
-    """Creates a connection with row factory and WAL mode enabled for concurrency."""
+    """Creates a connection with row factory, with auto-fallback to shared in-memory SQLite if disk fails."""
+    global _use_in_memory_mode, _shared_mem_keepalive
+
+    if _use_in_memory_mode:
+        if _shared_mem_keepalive is None:
+            _shared_mem_keepalive = sqlite3.connect("file:echo_core_shared?mode=memory&cache=shared", uri=True, check_same_thread=False)
+        conn = sqlite3.connect("file:echo_core_shared?mode=memory&cache=shared", uri=True, timeout=10.0, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    db_path = settings.SQLITE_DB_PATH
     try:
-        os.makedirs(os.path.dirname(str(DB_PATH)), exist_ok=True)
-        conn = sqlite3.connect(str(DB_PATH), timeout=10.0, check_same_thread=False)
+        os.makedirs(os.path.dirname(str(db_path)), exist_ok=True)
+        conn = sqlite3.connect(str(db_path), timeout=10.0, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+        except Exception:
+            pass
+        return conn
     except Exception as e:
-        logger.warning(f"Failed to open disk database at {DB_PATH}: {e}. Falling back to in-memory SQLite.")
-        conn = sqlite3.connect(":memory:", timeout=10.0, check_same_thread=False)
-        
-    conn.row_factory = sqlite3.Row
-    try:
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
-    except Exception:
-        pass
-    return conn
+        logger.warning(f"Failed to open disk database at {db_path}: {e}. Falling back to shared in-memory SQLite.")
+        _use_in_memory_mode = True
+        if _shared_mem_keepalive is None:
+            _shared_mem_keepalive = sqlite3.connect("file:echo_core_shared?mode=memory&cache=shared", uri=True, check_same_thread=False)
+        conn = sqlite3.connect("file:echo_core_shared?mode=memory&cache=shared", uri=True, timeout=10.0, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
 
 class EchoDatabase:
     """
@@ -44,100 +58,127 @@ class EchoDatabase:
     def __init__(self):
         self._initialized = False
 
+    def _create_schema(self, conn: sqlite3.Connection):
+        """Executes table and index creation on the provided connection."""
+        with conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS incidents (
+                    id TEXT PRIMARY KEY,
+                    svc TEXT NOT NULL,
+                    sev INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    cause TEXT,
+                    error_log TEXT,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    briefing_json TEXT,
+                    generic_briefing_json TEXT,
+                    comparison_json TEXT,
+                    recalled_items_json TEXT,
+                    events_json TEXT,
+                    duplicate_count INTEGER DEFAULT 0,
+                    resolver TEXT,
+                    fix_worked TEXT,
+                    fixes_failed TEXT,
+                    is_cascade INTEGER DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    resolved_at INTEGER
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_svc ON incidents(svc);")
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    incident_id TEXT,
+                    svc TEXT NOT NULL,
+                    sev INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    message TEXT,
+                    timestamp INTEGER NOT NULL
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_alerts_inc ON alerts(incident_id);")
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL DEFAULT 'default',
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    incident_id TEXT,
+                    suggestion_id INTEGER,
+                    timestamp INTEGER NOT NULL
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id, timestamp);")
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ai_suggestions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    incident_id TEXT NOT NULL,
+                    svc TEXT NOT NULL,
+                    action_title TEXT NOT NULL,
+                    recommendation TEXT NOT NULL,
+                    command TEXT NOT NULL,
+                    risk_level TEXT NOT NULL DEFAULT 'LOW',
+                    reasoning TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+                    approved_by TEXT,
+                    rejected_reason TEXT,
+                    execution_result TEXT,
+                    created_at INTEGER NOT NULL,
+                    acted_at INTEGER
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_suggestions_status ON ai_suggestions(status);")
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    action TEXT NOT NULL,
+                    incident_id TEXT,
+                    svc TEXT,
+                    actor TEXT NOT NULL DEFAULT 'On-Call SRE',
+                    details TEXT,
+                    timestamp INTEGER NOT NULL
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(timestamp DESC);")
+
     def init_db(self):
-        """Initializes tables and indexes synchronously."""
-        conn = _get_connection()
+        """Initializes tables and indexes synchronously, with seamless fallback to shared in-memory DB if disk is read-only."""
+        global _use_in_memory_mode, _shared_mem_keepalive
+
+        # 1. Try configured disk path
+        if not _use_in_memory_mode:
+            try:
+                conn = _get_connection()
+                try:
+                    self._create_schema(conn)
+                    self._initialized = True
+                    logger.info(f"Echo-Core SQLite database initialized successfully at {settings.SQLITE_DB_PATH}.")
+                    return
+                finally:
+                    conn.close()
+            except Exception as disk_err:
+                logger.warning(f"Failed to initialize schema on disk ({disk_err}). Switching to shared in-memory SQLite.")
+                _use_in_memory_mode = True
+
+        # 2. Shared in-memory fallback
         try:
-            with conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS incidents (
-                        id TEXT PRIMARY KEY,
-                        svc TEXT NOT NULL,
-                        sev INTEGER NOT NULL,
-                        title TEXT NOT NULL,
-                        cause TEXT,
-                        error_log TEXT,
-                        status TEXT NOT NULL DEFAULT 'active',
-                        briefing_json TEXT,
-                        generic_briefing_json TEXT,
-                        comparison_json TEXT,
-                        recalled_items_json TEXT,
-                        events_json TEXT,
-                        duplicate_count INTEGER DEFAULT 0,
-                        resolver TEXT,
-                        fix_worked TEXT,
-                        fixes_failed TEXT,
-                        is_cascade INTEGER DEFAULT 0,
-                        created_at INTEGER NOT NULL,
-                        resolved_at INTEGER
-                    );
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_svc ON incidents(svc);")
-
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS alerts (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        incident_id TEXT,
-                        svc TEXT NOT NULL,
-                        sev INTEGER NOT NULL,
-                        title TEXT NOT NULL,
-                        message TEXT,
-                        timestamp INTEGER NOT NULL
-                    );
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_alerts_inc ON alerts(incident_id);")
-
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS chat_messages (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        session_id TEXT NOT NULL DEFAULT 'default',
-                        role TEXT NOT NULL,
-                        content TEXT NOT NULL,
-                        incident_id TEXT,
-                        suggestion_id INTEGER,
-                        timestamp INTEGER NOT NULL
-                    );
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id, timestamp);")
-
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS ai_suggestions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        incident_id TEXT NOT NULL,
-                        svc TEXT NOT NULL,
-                        action_title TEXT NOT NULL,
-                        recommendation TEXT NOT NULL,
-                        command TEXT NOT NULL,
-                        risk_level TEXT NOT NULL DEFAULT 'LOW',
-                        reasoning TEXT,
-                        status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
-                        approved_by TEXT,
-                        rejected_reason TEXT,
-                        execution_result TEXT,
-                        created_at INTEGER NOT NULL,
-                        acted_at INTEGER
-                    );
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_suggestions_status ON ai_suggestions(status);")
-
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS audit_log (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        action TEXT NOT NULL,
-                        incident_id TEXT,
-                        svc TEXT,
-                        actor TEXT NOT NULL DEFAULT 'On-Call SRE',
-                        details TEXT,
-                        timestamp INTEGER NOT NULL
-                    );
-                """)
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(timestamp DESC);")
-                
-            self._initialized = True
-            logger.info("Echo-Core SQLite database initialized successfully.")
-        finally:
-            conn.close()
+            if _shared_mem_keepalive is None:
+                _shared_mem_keepalive = sqlite3.connect("file:echo_core_shared?mode=memory&cache=shared", uri=True, check_same_thread=False)
+            conn = sqlite3.connect("file:echo_core_shared?mode=memory&cache=shared", uri=True, timeout=10.0, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            try:
+                self._create_schema(conn)
+                self._initialized = True
+                logger.info("Echo-Core shared in-memory SQLite database initialized successfully.")
+            finally:
+                conn.close()
+        except Exception as mem_err:
+            logger.error(f"Failed to initialize in-memory SQLite database: {mem_err}")
 
     # --- INCIDENTS ---
     def save_incident_sync(self, inc: Dict[str, Any]):
@@ -521,7 +562,7 @@ class EchoDatabase:
                 "pending_suggestions": c_sug_pending,
                 "total_suggestions": c_sug_total,
                 "audit_logs": c_audit,
-                "db_location": str(DB_PATH)
+                "db_location": "in-memory (shared cache)" if _use_in_memory_mode else str(settings.SQLITE_DB_PATH)
             }
         finally:
             conn.close()
