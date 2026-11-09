@@ -712,6 +712,41 @@ async def trigger_seed(background_tasks: BackgroundTasks, limit: Optional[int] =
     background_tasks.add_task(seed_memory, limit=limit)
     return {"message": "Memory seeding background task started"}
 
+# Live Telemetry Metrics Endpoint (On-Demand Ticking for Serverless & Polling)
+@app.get("/api/metrics")
+async def get_live_metrics():
+    """
+    Returns live metrics and ticks simulation on demand.
+    Provides continuous telemetry polling fallback for serverless environments.
+    """
+    try:
+        sim.tick_metrics()
+        sim.generate_log()
+    except Exception as tick_err:
+        logger.error(f"Error ticking sim in get_live_metrics: {tick_err}")
+
+    active_list = [i for i in sim.incidents.values() if i.get("status") == "active"]
+    db_stats = {
+        "active_incidents": len(active_list),
+        "is_healthy": True
+    }
+    return {
+        "metrics": {
+            "rps": sim.rps,
+            "p95": sim.p95,
+            "err": sim.err,
+            "inc": len(active_list),
+            "history": sim.history
+        },
+        "incidents": active_list,
+        "logs": sim.logs[:15],
+        "database": db_stats,
+        "hindsight": {
+            "is_healthy": memory.is_healthy,
+            "last_error": memory.last_error
+        }
+    }
+
 # Server-Sent Events (SSE) Stream
 @app.get("/api/events")
 async def sse_events(request: Request):
@@ -720,6 +755,13 @@ async def sse_events(request: Request):
         while True:
             if await request.is_disconnected():
                 break
+
+            # Tick simulation on each cycle so live streaming continuously evolves even in serverless
+            try:
+                sim.tick_metrics()
+                sim.generate_log()
+            except Exception as tick_err:
+                logger.error(f"Error ticking sim in sse_events: {tick_err}")
 
             active_list = [i for i in sim.incidents.values() if i.get("status") == "active"]
             new_logs = [l for l in sim.logs if l["t"] > last_log_t][:10]

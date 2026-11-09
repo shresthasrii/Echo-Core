@@ -95,3 +95,17 @@ def test_api_anti_patterns():
     data = res.json()
     assert isinstance(data, list)
     assert len(data) >= 30
+
+def test_api_live_metrics_stream_endpoint():
+    res = client.get("/api/metrics")
+    assert res.status_code == 200
+    data = res.json()
+    assert "metrics" in data
+    assert "rps" in data["metrics"]
+    assert "p95" in data["metrics"]
+    assert "err" in data["metrics"]
+    assert "history" in data["metrics"]
+    assert len(data["metrics"]["history"]["rps"]) > 0
+    assert "incidents" in data
+    assert "logs" in data
+    assert "database" in data
