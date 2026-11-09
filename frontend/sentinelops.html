@@ -68,14 +68,24 @@ h2{font:700 16px/1.2 var(--fh);margin:0}
 .errst{display:none;border-color:var(--s1);grid-column:1/-1}.errst b{color:var(--s1)}
 [data-err] .errst{display:grid}[data-err] .kpi{display:none}
 [data-err] #pLogs .real>:not(.errst){display:none!important}
-#kg{width:100%;height:auto;display:block;margin-top:6px;background:radial-gradient(circle at 1px 1px,var(--bd) 1px,transparent 0) 0 0/22px 22px;border-radius:calc(var(--r) - 4px)}
-.node{cursor:grab;outline:none;touch-action:none;transition:opacity .25s}
-.node circle{fill:var(--sf2);stroke:var(--c);stroke-width:3;transition:stroke .7s,fill .2s}
-.node:hover circle,.node:focus-visible circle{fill:var(--bd)}
-.node.sel circle{stroke-width:6}.node[data-sev="1"] circle{animation:ring 1.3s infinite}
-.node text{fill:var(--tx);font-size:12px;text-anchor:middle;pointer-events:none;user-select:none}.node .n{font-weight:700;font-size:13px}
-.edge{stroke:var(--bd);stroke-width:1.6;transition:opacity .25s,stroke .25s}.edge.hi{stroke:var(--ac);stroke-width:3}
+#kg{width:100%;height:auto;min-height:330px;display:block;margin-top:8px;background:radial-gradient(circle at 50% 50%,#151926 0%,#0c0f17 100%);border:1px solid var(--bd);border-radius:calc(var(--r) - 2px);box-shadow:inset 0 2px 14px rgba(0,0,0,0.45)}
+.node{cursor:grab;outline:none;touch-action:none;transition:transform .15s ease-out,opacity .25s}
+.node circle.base{fill:#151a24;stroke:var(--c,var(--ok));stroke-width:3.2;transition:stroke .5s,fill .2s,filter .3s;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6))}
+.node[data-sev="1"] circle.base{stroke:var(--s1);filter:drop-shadow(0 0 12px rgba(255,77,109,0.9));animation:nodePulse 1.4s infinite}
+.node[data-sev="2"] circle.base{stroke:var(--s2);filter:drop-shadow(0 0 9px rgba(217,70,239,0.8))}
+.node[data-sev="3"] circle.base{stroke:var(--s3);filter:drop-shadow(0 0 8px rgba(168,85,247,0.75))}
+.node[data-sev="4"] circle.base{stroke:var(--s4);filter:drop-shadow(0 0 7px rgba(37,99,235,0.7))}
+.node[data-sev="0"] circle.base{stroke:#4ade80;filter:drop-shadow(0 0 6px rgba(74,222,128,0.5))}
+.node:hover circle.base,.node:focus-visible circle.base{fill:#222938}
+.node.sel circle.base{stroke-width:5;filter:drop-shadow(0 0 14px var(--ac))}
+.node text.n{fill:#ffffff;font-weight:700;font-size:12.5px;text-anchor:middle;pointer-events:none;user-select:none}
+.node text.lbl{fill:#f1f5f9;font-weight:700;font-size:12.5px;text-anchor:middle;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.95))}
+.edge{stroke:rgba(255,255,255,0.22);stroke-width:2.2;stroke-dasharray:4 6;animation:flow 1.8s linear infinite;transition:stroke .3s,stroke-width .3s}
+.edge.impacted[data-sev="1"]{stroke:var(--s1);stroke-width:3.5;stroke-dasharray:6 4;animation:flow .8s linear infinite;filter:drop-shadow(0 0 6px var(--s1))}
+.edge.impacted[data-sev="2"]{stroke:var(--s2);stroke-width:3;stroke-dasharray:6 4;filter:drop-shadow(0 0 5px var(--s2))}
+.edge.hi{stroke:var(--ac);stroke-width:3.5;filter:drop-shadow(0 0 8px var(--ac))}
 .dim{opacity:.18}
+@keyframes nodePulse{0%{stroke-width:3.2}50%{stroke-width:5.2}100%{stroke-width:3.2}}
 .info{margin:8px 0 0;color:var(--mu);min-height:21px}.info b{color:var(--tx)}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
 .bar input{flex:1 1 200px;min-width:0;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:calc(var(--r) - 3px);padding:8px 12px;font:inherit}
@@ -105,7 +115,6 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
 .kpi .hint{color:var(--mu);font-size:12.5px}.kpi .sub{font-weight:600;color:var(--k)}.kpi[data-s=""] .sub{color:var(--ok)}
 .live,.btn:hover,.btn.pri,.seg button[aria-pressed=true]{box-shadow:none}
 .btn.pri,.seg button[aria-pressed=true]{background:var(--ac);color:var(--bg)}
-#kg{background:var(--sf2);border:1px solid var(--bd)}
 .bd{min-width:74px;font-size:12.5px}[data-theme=light] .bd{color:#fff}
 .sub2{margin:2px 0 10px;color:var(--mu);font-size:13px;max-width:62ch}
 .lbl{margin:12px 0 4px;font-weight:600;font-size:13px}
@@ -284,7 +293,7 @@ h1{background:none;color:var(--tx);text-transform:none;letter-spacing:-.01em;fon
 <div class="real"><div id="incList"></div><div class="empty" id="incEmpty" hidden></div></div><div class="skel"></div></section>
 <section class="p" id="pGraph"><div class="ph"><h2>Service Knowledge Graph</h2><button class="btn sm" id="gRst">Reset Layout</button></div>
 <p class="sub2">Real-time dependency topology. The ring colour shows health. Click a service to filter its incidents.</p>
-<div class="real"><div class="legend"></div><svg id="kg" viewBox="0 0 600 340" role="group" aria-label="Service dependency graph"></svg><p class="info" id="kgInfo"></p></div><div class="skel"></div></section>
+<div class="real"><div class="legend"></div><svg id="kg" viewBox="0 0 600 340" role="group" aria-label="Service dependency graph"><defs><pattern id="kgGrid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1" fill="rgba(255,255,255,0.09)"/></pattern></defs><rect width="100%" height="100%" fill="url(#kgGrid)"/></svg><p class="info" id="kgInfo"></p></div><div class="skel"></div></section>
 <section class="p" id="pLogs"><div class="ph"><h2>Live Log Stream<span class="cnt" id="lCnt"></span></h2></div>
 <p class="sub2">System events streamed via Server-Sent Events (SSE). Search by service or keyword.</p>
 <div class="real"><div class="bar"><input id="q" type="search" placeholder="Search service or message" aria-label="Search logs"><span id="chips"></span><button class="btn sm" id="bPause" aria-pressed="false">Pause</button></div>
@@ -605,25 +614,48 @@ $("#pLogs .skel").innerHTML='<i class="sk" style="height:16px"></i>'.repeat(9);
 const K=[["rps","Traffic","Requests handled each second"],["p95","Response time","Slowest 1 in 20 requests latency"],["err","Failed requests","Percentage of requests failing"],["inc","Open incidents","Problems requiring on-call attention"]],
 M={rps:4458,p95:130,err:.21},
 H={
-  rps:Array.from({length:28},(_,i)=>Math.round(4458+Math.sin(i*0.42)*75+rnd(-20,20))),
+  rps:Array.from({length:28},(_,i)=>Math.round(4458+Math.sin(i*0.42)*75+rnd(-15,15))),
   p95:Array.from({length:28},(_,i)=>Math.round(130+Math.cos(i*0.5)*9+rnd(-3,3))),
   err:Array.from({length:28},(_,i)=>+(0.21+Math.sin(i*0.35)*0.035+rnd(-0.01,0.01)).toFixed(2)),
-  inc:Array.from({length:28},()=>4)
+  inc:Array.from({length:28},()=>3)
 };
 K.forEach(([k,l,hn])=>{const d=document.createElement("div");d.className="kpi";d.id="k-"+k;d.innerHTML=`<small class="name">${l}</small><b class="val">–</b><span class="sub"></span><small class="hint">${hn}</small><svg viewBox="0 0 100 28" preserveAspectRatio="none"><path class="sa"/><path class="sl"/></svg>`;$("#kpis").append(d)});
 
 function spark(k){
   const h=H[k];
   if(!h||h.length<2)return"M0,14 L100,14";
-  let mn=Math.min(...h),mx=Math.max(...h);
-  if(mx-mn<0.001){mn-=1;mx+=1}
-  const p=h.map((v,i)=>[i*100/(h.length-1||1),26-(v-mn)/(mx-mn)*22]);
-  let d=`M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)}`;
-  for(let i=1;i<p.length;i++){
-    const a=p[i-1],b=p[i];
-    d+=`Q${a[0].toFixed(1)},${a[1].toFixed(1)} ${((a[0]+b[0])/2).toFixed(1)},${((a[1]+b[1])/2).toFixed(1)}`;
+  let dataMin=Math.min(...h);
+  let dataMax=Math.max(...h);
+  let delta=dataMax-dataMin;
+  const avg=h.reduce((a,b)=>a+b,0)/(h.length||1);
+  const minSpan=Math.max(k==="err"?0.08:k==="inc"?1.2:k==="p95"?18:120,Math.abs(avg)*0.09);
+  if(delta<minSpan){
+    const mid=(dataMin+dataMax)/2;
+    dataMin=mid-minSpan/2;
+    dataMax=mid+minSpan/2;
+    delta=minSpan;
   }
-  return d+`L100,${p[p.length-1][1].toFixed(1)}`;
+  const pad=delta*0.14;
+  const mn=dataMin-pad;
+  const mx=dataMax+pad;
+  const range=(mx-mn)||1;
+
+  const p=h.map((v,i)=>{
+    const x=+(i*100/(h.length-1)).toFixed(2);
+    const clamped=Math.max(mn,Math.min(mx,v));
+    const y=+(24-((clamped-mn)/range)*18).toFixed(2);
+    return[x,y];
+  });
+
+  let d=`M ${p[0][0]},${p[0][1]}`;
+  for(let i=0;i<p.length-1;i++){
+    const midX=((p[i][0]+p[i+1][0])/2).toFixed(2);
+    const midY=((p[i][1]+p[i+1][1])/2).toFixed(2);
+    d+=` Q ${p[i][0]},${p[i][1]} ${midX},${midY}`;
+  }
+  const last=p[p.length-1];
+  d+=` L ${last[0]},${last[1]}`;
+  return d;
 }
 const F={rps:x=>Math.round(x).toLocaleString(),p95:x=>Math.round(x)+" ms",err:x=>x.toFixed(2)+"%",inc:x=>Math.round(x)};
 function tw(el,to,f){const from=el._v===undefined?to:el._v,t0=performance.now();el._v=to;cancelAnimationFrame(el._r);const s=n=>{const p=Math.min(1,(n-t0)/700),e=1-Math.pow(1-p,3);el.textContent=f(from+(to-from)*e);if(p<1)el._r=requestAnimationFrame(s)};el._r=requestAnimationFrame(s)}
@@ -648,15 +680,15 @@ function tickClientMetrics(){
   const active=incs.filter(i=>i.status!=="resolved");
   const load=active.reduce((acc,i)=>acc+(5-(i.sev||3)),0);
 
-  // Dynamic targets based on active load:
-  const targetRps=Math.max(2400,Math.min(6600,4480-(load*68)+rnd(-40,40)));
-  const targetP95=Math.max(90,128+(load*23)+rnd(-4,4));
-  const targetErr=Math.max(0.08,+(0.19+(load*0.27)+rnd(-0.02,0.02)).toFixed(2));
+  // Smooth realistic target computation
+  const targetRps=Math.max(2200,Math.min(6200,4480-(load*80)+rnd(-35,35)));
+  const targetP95=Math.max(90,Math.min(800,128+(load*20)+rnd(-4,4)));
+  const targetErr=Math.max(0.08,Math.min(12.0,+(0.19+(load*0.24)+rnd(-0.02,0.02)).toFixed(2)));
 
-  // Fluid jitter towards target
-  M.rps=Math.round(M.rps+(targetRps-M.rps)*0.28+rnd(-12,12));
-  M.p95=Math.round(M.p95+(targetP95-M.p95)*0.28+rnd(-2,2));
-  M.err=Math.max(0.05,+(M.err+(targetErr-M.err)*0.28+rnd(-0.012,0.012)).toFixed(2));
+  // Fluid transition toward targets
+  M.rps=Math.round(M.rps+(targetRps-M.rps)*0.22+rnd(-10,10));
+  M.p95=Math.round(M.p95+(targetP95-M.p95)*0.22+rnd(-2,2));
+  M.err=Math.max(0.05,+(M.err+(targetErr-M.err)*0.22+rnd(-0.01,0.01)).toFixed(2));
 
   H.rps.push(M.rps);if(H.rps.length>30)H.rps.shift();
   H.p95.push(M.p95);if(H.p95.length>30)H.p95.shift();
@@ -1046,7 +1078,14 @@ $("#pmCopy").onclick=()=>{
 /* graph */
 const svg=$("#kg"),NS="http://www.w3.org/2000/svg",mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.append(e);return e};
 const lines=E.map(()=>mk("line",{class:"edge"},svg)),nodes={};
-for(const k in N){const g=mk("g",{class:"node",tabindex:0,role:"button","aria-label":k,"data-k":k},svg);mk("circle",{r:21},g);mk("text",{y:5,class:"n"},g);mk("text",{y:39},g).textContent=k;nodes[k]=g}
+for(const k in N){
+  const g=mk("g",{class:"node",tabindex:0,role:"button","aria-label":k,"data-k":k},svg);
+  mk("circle",{r:22,class:"base"},g);
+  mk("text",{y:5,class:"n"},g);
+  const lbl=mk("text",{y:38,class:"lbl"},g);
+  lbl.textContent=k;
+  nodes[k]=g;
+}
 
 function place(){
   lines.forEach((l,i)=>{const[a,b]=E[i];l.setAttribute("x1",N[a][0]);l.setAttribute("y1",N[a][1]);l.setAttribute("x2",N[b][0]);l.setAttribute("y2",N[b][1])});
@@ -1056,9 +1095,27 @@ function place(){
 function health(){
   for(const k in nodes){
     const l=incs.filter(i=>i.svc===k&&i.status!=="resolved");
-    nodes[k].dataset.sev=l.length?Math.min(...l.map(i=>i.sev)):0;
-    $(".n",nodes[k]).textContent=l.length||"";
+    const sev=l.length?Math.min(...l.map(i=>i.sev)):0;
+    nodes[k].dataset.sev=sev;
+    const badge=$(".n",nodes[k]);
+    if(badge){
+      badge.textContent=l.length?(sev===1?"🚨"+l.length:l.length):"✓";
+      badge.style.fill=sev===1?"#ff6b6b":sev===2?"#ffa87a":sev===0?"#4ade80":"#ffffff";
+    }
   }
+  lines.forEach((l,i)=>{
+    const[a,b]=E[i];
+    const aIncs=incs.filter(x=>x.svc===a&&x.status!=="resolved");
+    const bIncs=incs.filter(x=>x.svc===b&&x.status!=="resolved");
+    if(aIncs.length||bIncs.length){
+      const maxSev=Math.min(...[...aIncs,...bIncs].map(x=>x.sev));
+      l.dataset.sev=maxSev;
+      l.classList.add("impacted");
+    }else{
+      l.dataset.sev="0";
+      l.classList.remove("impacted");
+    }
+  });
 }
 
 function paintSel(){
@@ -1925,12 +1982,6 @@ function connectSSE(){
         M.rps=Math.round(data.metrics.rps);
         M.p95=Math.round(data.metrics.p95);
         M.err=+data.metrics.err.toFixed(2);
-        if(data.metrics.history&&data.metrics.history.rps&&data.metrics.history.rps.length>3){
-          H.rps=[...data.metrics.history.rps];
-          H.p95=[...data.metrics.history.p95];
-          H.err=[...data.metrics.history.err];
-          H.inc=[...data.metrics.history.inc];
-        }
         renderK();
       }
       if(data.logs&&data.logs.length){
@@ -1987,12 +2038,6 @@ async function pollMetricsFallback(){
       M.rps=Math.round(data.metrics.rps);
       M.p95=Math.round(data.metrics.p95);
       M.err=+data.metrics.err.toFixed(2);
-      if(data.metrics.history&&data.metrics.history.rps&&data.metrics.history.rps.length>3){
-        H.rps=[...data.metrics.history.rps];
-        H.p95=[...data.metrics.history.p95];
-        H.err=[...data.metrics.history.err];
-        H.inc=[...data.metrics.history.inc];
-      }
       renderK();
     }
     if(data.logs&&data.logs.length){
